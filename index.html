@@ -474,7 +474,8 @@
         <li data-i="📂">Ladet eure exportierten WhatsApp-Chats (.txt) hoch – ein einziger Chat reicht schon.</li>
         <li data-i="🎰">10 Runden: Jede Runde wird ein <b>Wort-Meister</b> ausgelost – und bei mehreren Chats auch der Chat.</li>
         <li data-i="✍️">Der Wort-Meister wählt ein Wort – alle schätzen, wie oft es im Chat vorkommt.</li>
-        <li data-i="🥴">Wer am weitesten daneben liegt, trinkt <b>3 Schlücke</b>.</li>
+        <li data-i="🎯">Jede Zahl darf nur einmal getippt werden. Genau richtig geschätzt? <b>5 Punkte</b> statt 3.</li>
+        <li data-i="🥴">Wer am weitesten daneben liegt, trinkt <b>3 Schlücke</b> – bei Gleichstand trinken alle Betroffenen.</li>
         <li data-i="🏆">Am Ende verteilt der Sieger 5 Schlücke, der Letzte muss selbst ran.</li>
       </ul>
     </div>
@@ -654,6 +655,7 @@
      ========================================================= */
   const STORAGE_KEY = 'chatRouletteState_v1';
   const ROUND_DRINK = 3;          // Schlücke für den Rundenverlierer
+  const EXACT_POINTS = 5;         // Punkte für einen Volltreffer (statt 3)
   const WINNER_SIPS = 5;          // Schlücke, die der Gesamtsieger verteilt
   const COLORS = ['#ff3ea5', '#8b5cf6', '#22d3ee', '#a3e635', '#fbbf24', '#fb7185', '#38bdf8', '#f472b6', '#34d399', '#c084fc', '#f97316', '#60a5fa'];
   const STEPS = ['Runde', 'Wort', 'Schätzen', 'Ergebnis'];
@@ -1236,6 +1238,11 @@
       return;
     }
     const c = state.game.current;
+    // Jede Zahl darf pro Runde nur einmal getippt werden – wer später dran ist, muss ausweichen
+    if (Object.values(c.guesses).includes(n)) {
+      $('guessError').textContent = `Die ${fmt(n)} hat schon jemand getippt – bitte wähle eine andere Zahl.`;
+      return;
+    }
     c.guesses[c.guessOrder[c.guessIdx]] = n;
     c.guessIdx++;
     $('guessInput').value = '';
@@ -1273,9 +1280,10 @@
     const maxDiff = Math.max(...rows.map((r) => r.diff));
     const allTied = rows.every((r) => r.diff === maxDiff);
     rows.forEach((r) => {
-      r.loser = !allTied && r.diff === maxDiff;
-      // Verlierer gehen leer aus, alle anderen bekommen Punkte nach Platz
-      r.points = r.loser ? 0 : pointsForPlace(r.place, n);
+      // Wer am weitesten weg ist, trinkt – bei Gleichstand alle Betroffenen
+      r.loser = r.diff === maxDiff;
+      // Verlierer gehen leer aus, außer alle liegen gleich weit weg: dann gibt es für alle die gleichen Punkte
+      r.points = r.loser && !allTied ? 0 : r.diff === 0 ? EXACT_POINTS : pointsForPlace(r.place, n);
       r.sips = r.loser ? ROUND_DRINK : 0;
     });
 
@@ -1360,9 +1368,9 @@
         ${avatarHTML(p, 'sm')}
         <div class="rr-main">
           <div class="rr-name">${esc(p.name)}${r.id === c.masterId ? ' 👑' : ''}</div>
-          <div class="rr-sub">Tipp: <b>${fmt(r.guess)}</b> · ${r.diff === 0 ? '🎯 Volltreffer!' : `${fmt(r.diff)} daneben`}</div>
+          <div class="rr-sub">Tipp: <b>${fmt(r.guess)}</b> · ${r.diff === 0 ? `🎯 Volltreffer! ${EXACT_POINTS} Punkte` : `${fmt(r.diff)} daneben`}</div>
         </div>
-        <div class="rr-pts">${r.loser ? `🍺 ${r.sips}` : `+${r.points}`}</div>
+        <div class="rr-pts">${[r.points ? `+${r.points}` : '', r.loser ? `🍺 ${r.sips}` : ''].filter(Boolean).join(' · ')}</div>
       </div>`;
     });
     $('resRows').innerHTML = rowsHTML.join('');
@@ -1375,11 +1383,11 @@
     // Trink-Banner
     const losers = res.rows.filter((r) => r.loser);
     if (animate) await sleep(450);
-    if (losers.length) {
+    if (res.allTied) {
+      $('resBanners').innerHTML = `<div class="drink-banner"><span class="emoji">🤝</span><div>Alle gleich weit daneben! Jeder bekommt ${res.rows[0].points} Punkte – und alle trinken <b>${ROUND_DRINK} Schlücke</b>.</div></div>`;
+    } else if (losers.length) {
       const names = joinNames(losers.map((r) => pname(r.id)));
       $('resBanners').innerHTML = `<div class="drink-banner"><span class="emoji">🍺</span><div>${esc(names)} ${losers.length > 1 ? 'liegen' : 'liegt'} am weitesten daneben und ${losers.length > 1 ? 'müssen' : 'muss'} <b>sofort ${ROUND_DRINK} Schlücke</b> trinken!</div></div>`;
-    } else {
-      $('resBanners').innerHTML = `<div class="drink-banner good"><span class="emoji">🤝</span><div>Alle gleich nah dran – Unentschieden! Jeder bekommt 3 Punkte, niemand muss trinken.</div></div>`;
     }
     requestAnimationFrame(() => $('resBanners').firstElementChild.classList.add('show'));
     if (animate && losers.length) burstEmoji('🍺', 14);
