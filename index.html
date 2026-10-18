@@ -220,7 +220,6 @@
   .player-name { font-weight: 800; font-size: 21px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .status-badge { font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
   .status-badge.ok { background: rgba(163, 230, 53, 0.15); color: var(--lime); border: 1px solid rgba(163, 230, 53, 0.35); }
-  .status-badge.missing { background: rgba(251, 191, 36, 0.12); color: var(--gold); border: 1px solid rgba(251, 191, 36, 0.35); }
 
   .chat-item {
     display: flex; align-items: center; gap: 10px;
@@ -472,7 +471,7 @@
       <h3>So läuft’s</h3>
       <ul class="rules-list">
         <li data-i="📱">Pass-and-Play: Ihr spielt alle an <b>einem Gerät</b> und reicht es weiter.</li>
-        <li data-i="📂">Ladet eure exportierten WhatsApp-Chats (.txt) hoch – zu zweit reicht euer gemeinsamer Chat.</li>
+        <li data-i="📂">Ladet eure exportierten WhatsApp-Chats (.txt) hoch – ein einziger Chat reicht schon.</li>
         <li data-i="🎰">10 Runden: Jede Runde wird ein <b>Wort-Meister</b> ausgelost – und bei mehreren Chats auch der Chat.</li>
         <li data-i="✍️">Der Wort-Meister wählt ein Wort – alle schätzen, wie oft es im Chat vorkommt.</li>
         <li data-i="🥴">Wer am weitesten daneben liegt, trinkt <b>3 Schlücke</b>.</li>
@@ -490,7 +489,7 @@
   <!-- ===================== LOBBY ===================== -->
   <section class="screen" id="screen-lobby">
     <h2>🛋️ Lobby</h2>
-    <p class="lead">Tragt alle Mitspieler ein. Danach ladet ihr eure Chats hoch – zu zweit reicht euer gemeinsamer Chat, ab 3 Spielern wählt jeder aus, mit wem sein Chat ist.</p>
+    <p class="lead">Tragt alle Mitspieler ein. Dann ladet ihr eure Chats hoch – insgesamt reicht ein einziger Chat, egal von wem.</p>
 
     <div class="card">
       <label class="lbl" for="playerNameInput">Spieler hinzufügen</label>
@@ -935,7 +934,7 @@
         <div class="player-head">
           ${avatarHTML(p)}
           <div class="player-name">${esc(p.name)}</div>
-          <span class="status-badge ${ok ? 'ok' : 'missing'}">${ok ? '✓ bereit' : 'Chat fehlt'}</span>
+          ${ok ? '<span class="status-badge ok">💬 im Chat</span>' : ''}
           <button class="icon-btn" data-remove="${p.id}" title="Spieler entfernen">✕</button>
         </div>
         ${myChats.map((c) => `
@@ -949,7 +948,7 @@
           </div>`).join('')}
         ${sharedChats.length ? `<div class="small muted" style="margin:4px 0 6px">Auch dabei in: ${sharedChats.map((c) => esc(chatShortLabel(c))).join(' · ')}</div>` : ''}
         <div class="upload-zone" data-zone="${p.id}">
-          <div class="small" style="font-weight:700">📂 Chat hochladen – mit wem ist der Chat?</div>
+          <div class="small" style="font-weight:700">📂 Chat hochladen (optional) – mit wem ist der Chat?</div>
           ${others.length ? `<div class="chip-row">${others.map((o) => `<button class="chip ${pendingPartners[p.id].has(o.id) ? 'on' : ''}" data-chip="${p.id}" data-partner="${o.id}">${esc(o.name)}</button>`).join('')}</div>`
             : `<div class="small muted" style="margin:8px 0">Füge erst weitere Spieler hinzu, um Chatpartner auszuwählen.</div>`}
           <label class="btn small secondary file-label" style="width:100%">
@@ -1033,10 +1032,6 @@
     if (!files.length) return;
     if (duo) files = files.slice(0, 1);
     const partners = duo ? state.players.filter((p) => p.id !== ownerId).map((p) => p.id) : Array.from(pendingPartners[ownerId] || []);
-    if (!partners.length && state.players.length > 1) {
-      toast('Wähle zuerst aus, mit wem der Chat ist! 👆');
-      return;
-    }
     let added = 0;
     for (const file of files) {
       if (!/\.txt$/i.test(file.name) && file.type !== 'text/plain') {
@@ -1064,9 +1059,7 @@
 
   function lobbyProblems() {
     if (state.players.length < 2) return 'Mindestens 2 Spieler werden benötigt.';
-    const missing = state.players.filter((p) => !playerHasChat(p.id)).map((p) => p.name);
-    if (missing.length) return `Noch ohne Chat: ${joinNames(missing)}. Jeder muss mindestens in einem Chat vorkommen.`;
-    if (!state.chats.length) return 'Ladet mindestens einen Chat hoch.';
+    if (!state.chats.length) return 'Ladet mindestens einen Chat hoch – egal von wem.';
     return '';
   }
 
