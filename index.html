@@ -308,6 +308,21 @@
   }
   .big-number.landed { animation: thump .5s var(--ease); }
   @keyframes thump { from { transform: scale(1.12); color: var(--hl); } to { transform: none; } }
+  /* Tipps vor der Auflösung: werden beim Hochzählen überholt */
+  .gr-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; }
+  .gr-list:empty { display: none; }
+  .gr-chip {
+    display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border-radius: 99px;
+    border: 1.5px solid var(--line-2); opacity: 0; transform: translateY(8px) scale(.9);
+    transition: opacity .3s, transform .35s var(--ease), border-color .25s, background .25s, color .25s;
+  }
+  .gr-chip .avatar { width: 26px; height: 26px; font-size: 12px; }
+  .gr-chip .gr-name { font-weight: 650; font-size: 14px; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gr-chip b { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .gr-chip.show { opacity: 1; transform: none; }
+  .gr-chip.passed { opacity: .38; }
+  .gr-chip.passed b { text-decoration: line-through; }
+  .gr-chip.hit { background: var(--hl); border-color: var(--hl); color: var(--hl-ink); }
   .unit { font-family: var(--mono); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 
   /* Zahlenstrahl: wo lagen die Tipps? */
@@ -649,6 +664,7 @@
   <section class="screen" id="screen-result">
     <div class="card">
       <label class="lbl">„<span id="resWord"></span>“ im Chat <span id="resChat"></span></label>
+      <div class="gr-list" id="resGuesses"></div>
       <div class="big-number" id="resNumber">0</div>
       <span class="unit">mal geschrieben</span>
       <div id="resLine"></div>
@@ -1566,23 +1582,44 @@
     $('resBanners').innerHTML = '';
     ['snippetCard', 'scoreCard', 'btnNextRound'].forEach((id) => $(id).classList.add('hidden'));
 
-    // Zahl hochzählen
+    // Erst die Tipps aufdecken (vom kleinsten zum größten) – damit alle beim Hochzählen mitfiebern
     const numEl = $('resNumber');
     numEl.classList.remove('landed');
+    const tips = res.rows.filter((r) => player(r.id)).slice().sort((a, b) => a.guess - b.guess);
+    $('resGuesses').innerHTML = tips.map((r) => `<span class="gr-chip">${avatarHTML(player(r.id), 'sm')}<span class="gr-name">${esc(pname(r.id))}</span><b>${fmt(r.guess)}</b></span>`).join('');
+    const chips = Array.from($('resGuesses').children);
     if (animate) {
-      const duration = 1800;
+      numEl.textContent = '?';
+      for (const chip of chips) {
+        await sleep(450);
+        if (token !== renderToken) return;
+        chip.classList.add('show');
+      }
+      await sleep(900);
+      if (token !== renderToken) return;
+
+      // Von 0 hochzählen und immer langsamer werden, bis die echte Zahl steht.
+      // Überholte Tipps werden ausgegraut.
+      const duration = Math.min(5200, 2000 + 900 * Math.log10(res.count + 1));
       const t0 = performance.now();
       await new Promise((resolve) => {
         const tick = (t) => {
+          if (token !== renderToken) return resolve();
           const k = Math.min(1, (t - t0) / duration);
-          const eased = 1 - Math.pow(1 - k, 3);
-          numEl.textContent = fmt(Math.round(res.count * eased + (k < 1 ? Math.random() * Math.max(3, res.count * 0.15) * (1 - k) : 0)));
+          const n = Math.floor(res.count * (1 - Math.pow(1 - k, 4)));
+          numEl.textContent = fmt(n);
+          tips.forEach((r, i) => chips[i].classList.toggle('passed', r.guess < n));
           k < 1 ? requestAnimationFrame(tick) : resolve();
         };
         requestAnimationFrame(tick);
       });
       if (token !== renderToken) return;
     }
+    tips.forEach((r, i) => {
+      chips[i].classList.add('show');
+      chips[i].classList.toggle('passed', r.guess < res.count);
+      chips[i].classList.toggle('hit', r.guess === res.count);
+    });
     numEl.textContent = fmt(res.count);
     void numEl.offsetWidth;
     numEl.classList.add('landed');
