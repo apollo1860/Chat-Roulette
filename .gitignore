@@ -1,3 +1,9 @@
 # WhatsApp-Chatexporte niemals einchecken
 *.txt
 *.zip
+
+# Firebase
+.firebase/
+.firebaserc
+*-debug.log
+node_modules/

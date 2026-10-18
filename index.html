@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0620">
-<!-- Datenschutz: Der Browser darf keinerlei Verbindungen nach außen aufbauen – Chats können die Seite nicht verlassen -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<!-- Datenschutz: Verbindungen sind nur zu Firebase (Online-Modus) erlaubt. Der Ein-Gerät-Modus baut gar keine Verbindung auf,
+     und Chat-Inhalte werden auch im Online-Modus nie übertragen – nur die Beweis-Nachrichten einer Runde. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://www.gstatic.com; style-src 'unsafe-inline'; img-src data:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <title>Chat-Roulette – Das WhatsApp-Trinkspiel</title>
@@ -441,6 +442,10 @@
   }
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
 
+  .code-big { font-size: clamp(34px, 10vw, 48px); font-weight: 900; letter-spacing: 4px; text-align: center; font-variant-numeric: tabular-nums; }
+  .badge { font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 99px; background: var(--card-strong); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .divider { text-align: center; color: var(--muted); font-weight: 700; margin: 6px 0 16px; }
+
   .hidden { display: none !important; }
 
   @media (max-width: 480px) {
@@ -474,7 +479,7 @@
     <div class="card glow-card">
       <h3>So läuft’s</h3>
       <ul class="rules-list">
-        <li data-i="📱">Pass-and-Play: Ihr spielt alle an <b>einem Gerät</b> und reicht es weiter.</li>
+        <li data-i="📱">Spielt an <b>einem Gerät</b>, das ihr weiterreicht – oder <b>online</b>, jeder am eigenen Handy.</li>
         <li data-i="📂">Ladet eure exportierten WhatsApp-Chats (.txt) hoch – ein einziger Chat reicht schon.</li>
         <li data-i="🎰">10 Runden: Jede Runde wird ein <b>Wort-Meister</b> ausgelost – und bei mehreren Chats auch der Chat.</li>
         <li data-i="✍️">Der Wort-Meister wählt ein Wort – alle schätzen, wie oft es im Chat vorkommt.</li>
@@ -485,11 +490,13 @@
     </div>
 
     <div class="btn-row">
-      <button class="btn block" id="btnNewGame">🎉 Neues Spiel</button>
+      <button class="btn block" id="btnNewGame">📱 Ein Gerät für alle</button>
+      <button class="btn cyan block" id="btnOnline">🌐 Online – jeder am eigenen Handy</button>
       <button class="btn secondary block hidden" id="btnResume">⏯️ Spiel fortsetzen</button>
+      <button class="btn secondary block hidden" id="btnResumeOnline">↩️ Zurück in den Raum</button>
       <button class="btn danger block hidden" id="btnWipeStart">🗑️ Alle Daten löschen</button>
     </div>
-    <p class="small muted center" style="margin-top:18px">🔒 Eure Chats verlassen nie dieses Gerät – alles wird lokal im Browser verarbeitet und beim Schließen des Tabs automatisch gelöscht.<br>Bitte trinkt verantwortungsvoll. Wasser zählt auch als Schluck. 💧</p>
+    <p class="small muted center" style="margin-top:18px">🔒 Eure Chats verlassen nie das Gerät, auf dem sie hochgeladen wurden. Sie werden lokal im Browser durchsucht und beim Schließen des Tabs automatisch gelöscht.<br>Bitte trinkt verantwortungsvoll. Wasser zählt auch als Schluck. 💧</p>
   </section>
 
   <!-- ===================== LOBBY ===================== -->
@@ -525,6 +532,60 @@
     </div>
   </section>
 
+  <!-- ===================== ONLINE: BEITRETEN ===================== -->
+  <section class="screen" id="screen-online">
+    <h2>🌐 Online spielen</h2>
+    <p class="lead">Jeder spielt am eigenen Handy. Eure Chats bleiben auf dem Gerät, auf dem sie hochgeladen werden – über den Server laufen nur Namen, Wörter, Tipps, Ergebnisse und das Beweismaterial.</p>
+    <div class="card">
+      <label class="lbl" for="onlineName">Dein Name</label>
+      <input class="input" id="onlineName" maxlength="20" placeholder="z. B. Anna" autocomplete="off">
+    </div>
+    <div class="card">
+      <label class="lbl" for="roomCodeInput">Raum beitreten</label>
+      <div class="input-row">
+        <input class="input" id="roomCodeInput" maxlength="12" placeholder="Raum-Code" autocomplete="off" autocapitalize="characters" spellcheck="false" style="text-transform:uppercase;letter-spacing:2px">
+        <button class="btn" id="btnJoinRoom" style="padding:14px 18px">🚪</button>
+      </div>
+      <div class="divider" style="margin:16px 0">– oder –</div>
+      <button class="btn cyan block" id="btnCreateRoom">✨ Neuen Raum erstellen</button>
+    </div>
+    <div class="field-error center" id="onlineError"></div>
+    <div class="btn-row">
+      <button class="btn secondary" id="btnOnlineBack">← Zurück</button>
+    </div>
+  </section>
+
+  <!-- ===================== ONLINE: RAUM-LOBBY ===================== -->
+  <section class="screen" id="screen-room">
+    <h2>🛋️ Raum</h2>
+    <div class="card glow-card center">
+      <label class="lbl">Raum-Code</label>
+      <div class="code-big gradient-text" id="roomCodeText"></div>
+      <p class="small muted" style="margin:6px 0 12px">Freunde geben den Code ein oder öffnen den Link.</p>
+      <button class="btn small secondary" id="btnShareRoom">🔗 Einladungslink teilen</button>
+    </div>
+    <div id="roomPlayers"></div>
+    <div class="card">
+      <h3>📂 Dein Chat <span class="small muted" style="font-weight:600">(optional)</span></h3>
+      <div id="roomUpload"></div>
+      <p class="small muted" style="margin-top:8px">🔒 Der Chat bleibt auf deinem Handy – gezählt wird hier. Lass den Tab während des Spiels offen.</p>
+    </div>
+    <div class="card">
+      <h3>💬 Chats im Raum</h3>
+      <div id="roomChats"></div>
+    </div>
+    <div class="card">
+      <h3>⚙️ Einstellungen</h3>
+      <div id="roomSettings"></div>
+    </div>
+    <div class="field-error center" id="roomError"></div>
+    <p class="center muted hidden" id="roomWaitHost"></p>
+    <div class="btn-row">
+      <button class="btn secondary" id="btnLeaveRoom">🚪 Verlassen</button>
+      <button class="btn" id="btnRoomStart">🚀 Spiel starten</button>
+    </div>
+  </section>
+
   <!-- ===================== ROUND INTRO ===================== -->
   <section class="screen" id="screen-round">
     <h2 class="center"><span class="gradient-text" id="roundTitle">Runde 1</span></h2>
@@ -549,6 +610,10 @@
     </div>
 
     <button class="btn block hidden" id="btnToWord" style="margin-top:10px"></button>
+    <div class="card center hidden" id="roundWait">
+      <p style="font-weight:800;font-size:20px" id="roundWaitText"></p>
+      <button class="btn small secondary hidden reroll-btn" style="margin-top:12px">🔄 Hängt? Runde neu auslosen</button>
+    </div>
   </section>
 
   <!-- ===================== WORD INPUT ===================== -->
@@ -592,6 +657,11 @@
       <div class="field-error" id="guessError"></div>
       <button class="btn block" id="btnSubmitGuess">✅ Schätzung abgeben</button>
     </div>
+
+    <div class="card center hidden" id="guessWait">
+      <p style="font-weight:800;font-size:20px" id="guessWaitText"></p>
+      <button class="btn small secondary hidden reroll-btn" style="margin-top:12px">🔄 Hängt? Runde neu auslosen</button>
+    </div>
   </section>
 
   <!-- ===================== RESULT ===================== -->
@@ -616,6 +686,7 @@
     </div>
 
     <button class="btn block hidden" id="btnNextRound"></button>
+    <p class="center muted hidden" id="resultWait" style="font-weight:700"></p>
   </section>
 
   <!-- ===================== FINALE ===================== -->
@@ -636,6 +707,8 @@
       <button class="btn block cyan" id="btnConfirmSips" style="margin-top:14px" disabled>🍻 Schlücke verteilen</button>
       <div id="sipSummary" class="hidden" style="margin-top:14px"></div>
     </div>
+
+    <div id="distLog"></div>
 
     <div class="card hidden" id="statsCard">
       <h3>📈 Statistik</h3>
@@ -673,6 +746,10 @@
    *                          lastChatId, current:{ chatId, masterId, word, guessOrder, guessIdx, guesses:{id:n}, result }, history:[] , phase }
    */
   let state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
+  // Online-Modus: null = Ein-Gerät-Modus. Im Online-Modus ist `state` ein Spiegel des Raum-Dokuments.
+  let online = null;
+  // Wird bei jedem Bildschirmwechsel erhöht, damit laufende Animationen alter Bildschirme abbrechen
+  let renderToken = 0;
 
   /* =========================================================
      Hilfsfunktionen
@@ -730,6 +807,7 @@
 
   // Nur sessionStorage: übersteht ein Neuladen, wird aber beim Schließen des Tabs vom Browser gelöscht
   function save() {
+    if (online) return; // online liegt der Spielstand im Raum, nicht lokal
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     catch (e) { /* Speicher voll oder blockiert – Spiel läuft trotzdem im Arbeitsspeicher weiter */ }
   }
@@ -737,6 +815,7 @@
   function wipeAll() {
     state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
     try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignorieren */ }
+    try { sessionStorage.removeItem(ONLINE_KEY); } catch (e) { /* ignorieren */ }
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignorieren */ }
   }
 
@@ -828,6 +907,7 @@
      Navigation
      ========================================================= */
   function show(screenId, step = -1) {
+    renderToken++;
     document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
     $(screenId).classList.add('active');
     const inGame = !!state.game && step >= 0;
@@ -846,8 +926,11 @@
      ========================================================= */
   function initStart() {
     const saved = load();
+    const savedOnline = loadOnlineLocal();
     $('btnResume').classList.toggle('hidden', !saved);
-    $('btnWipeStart').classList.toggle('hidden', !saved);
+    $('btnResumeOnline').classList.toggle('hidden', !(savedOnline && savedOnline.roomId));
+    if (savedOnline && savedOnline.roomId) $('btnResumeOnline').textContent = `↩️ Zurück in Raum ${formatCode(savedOnline.roomId)}`;
+    $('btnWipeStart').classList.toggle('hidden', !saved && !savedOnline);
     if (saved) {
       $('btnResume').textContent = saved.game ? `⏯️ Spiel fortsetzen (Runde ${saved.game.round})` : '⏯️ Zur gespeicherten Lobby';
     }
@@ -1092,10 +1175,15 @@
      ========================================================= */
   function startGame() {
     if (lobbyProblems()) return;
-    const zero = () => Object.fromEntries(state.players.map((p) => [p.id, 0]));
     state.settings.rounds = parseInt($('roundsSelect').value, 10) || 10;
-    state.game = {
-      totalRounds: state.settings.rounds,
+    state.game = newGame(state.players.map((p) => p.id), state.settings.rounds);
+    nextRound();
+  }
+
+  function newGame(playerIds, totalRounds) {
+    const zero = () => Object.fromEntries(playerIds.map((id) => [id, 0]));
+    return {
+      totalRounds,
       round: 0,
       scores: zero(),
       sips: zero(),
@@ -1105,27 +1193,34 @@
       lastMasterId: null,
       current: null,
       history: [],
+      distributions: {},
       phase: 'round',
     };
-    nextRound();
   }
 
-  function nextRound() {
-    const g = state.game;
+  const playableChats = () => state.chats.filter((c) => !c.lost);
+
+  // Lost Chat und Wort-Meister der nächsten Runde aus und schreibt sie in g
+  function advanceRound(g, players, chats) {
     g.round++;
     // Chat zufällig – nach Möglichkeit nicht zweimal hintereinander derselbe
-    const chatPool = state.chats.length > 1 ? state.chats.filter((c) => c.id !== g.lastChatId) : state.chats;
+    const chatPool = chats.length > 1 ? chats.filter((c) => c.id !== g.lastChatId) : chats;
     const chat = rand(chatPool);
     // Wort-Meister zufällig, fair verteilt (wer am seltensten dran war)
-    const minCount = Math.min(...state.players.map((p) => g.masterCount[p.id] || 0));
-    let masterPool = state.players.filter((p) => (g.masterCount[p.id] || 0) === minCount);
+    const minCount = Math.min(...players.map((p) => g.masterCount[p.id] || 0));
+    let masterPool = players.filter((p) => (g.masterCount[p.id] || 0) === minCount);
     if (masterPool.length > 1) masterPool = masterPool.filter((p) => p.id !== g.lastMasterId);
     const master = rand(masterPool);
     g.masterCount[master.id] = (g.masterCount[master.id] || 0) + 1;
     g.lastChatId = chat.id;
     g.lastMasterId = master.id;
-    g.current = { chatId: chat.id, masterId: master.id, word: '', guessOrder: [], guessIdx: 0, guesses: {}, result: null };
+    g.current = { chatId: chat.id, masterId: master.id, word: '', guessOrder: [], guessIdx: 0, guesses: {}, guessed: {}, result: null, roundKey: uid() };
     g.phase = 'round';
+    return g;
+  }
+
+  function nextRound() {
+    advanceRound(state.game, state.players, state.chats);
     save();
     startRound();
   }
@@ -1135,36 +1230,47 @@
     const chat = state.chats.find((c) => c.id === g.current.chatId);
     const master = player(g.current.masterId);
     show('screen-round', 0);
+    const token = renderToken;
     $('roundTitle').textContent = `Runde ${g.round}`;
     $('masterCard').classList.add('hidden');
     $('btnToWord').classList.add('hidden');
+    $('roundWait').classList.add('hidden');
     $('chatMeta').textContent = '';
 
     const slot = $('chatSlot');
     const slotText = $('chatSlotText');
-    const singleChat = state.chats.length === 1;
+    const singleChat = playableChats().length <= 1;
     $('roundSub').textContent = singleChat ? 'Neue Runde, neues Glück!' : 'Das Chat-Roulette dreht sich …';
     slot.classList.remove('landed');
     if (!singleChat) {
       slot.classList.add('spinning');
-      const labels = state.chats.map(chatShortLabel);
+      const labels = playableChats().map(chatShortLabel);
       for (let i = 0; i < 18; i++) {
         slotText.textContent = rand(labels);
         await sleep(60 + i * 9);
+        if (token !== renderToken) return;
       }
       slot.classList.remove('spinning');
     }
     slot.classList.add('landed');
     slotText.textContent = `Chat ${chatLabel(chat)}`;
-    $('chatMeta').textContent = `Runde ${g.round}: Es geht um den Chat ${chatLabel(chat)}! · ${fmt(chat.messages.length)} Nachrichten`;
+    $('chatMeta').textContent = `Runde ${g.round}: Es geht um den Chat ${chatLabel(chat)}! · ${fmt(chat.messageCount ?? chat.messages.length)} Nachrichten`;
 
     await sleep(700);
+    if (token !== renderToken) return;
     $('masterAvatar').innerHTML = avatarHTML(master, 'lg');
     $('masterName').textContent = master.name;
     $('masterCard').classList.remove('hidden');
     $('masterCard').style.animation = 'screenIn 0.5s';
 
     await sleep(400);
+    if (token !== renderToken) return;
+    if (online && master.id !== online.uid) {
+      $('roundWaitText').textContent = `✍️ ${master.name} wählt gerade ein Wort …`;
+      $('roundWait').classList.remove('hidden');
+      updateRerollButtons();
+      return;
+    }
     $('btnToWord').textContent = `✍️ Wort festlegen`;
     $('btnToWord').classList.remove('hidden');
   }
@@ -1191,6 +1297,7 @@
     const err = $('wordError');
     if (!word) { err.textContent = 'Bitte gib ein Wort ein.'; return; }
     if (!/[\p{L}\p{N}]/u.test(word)) { err.textContent = 'Das Wort muss mindestens einen Buchstaben oder eine Ziffer enthalten.'; return; }
+    if (online) { onlineLockWord(word); return; }
     const g = state.game;
     g.current.word = word;
     // Alle Spieler schätzen – in zufälliger Reihenfolge, Wort-Meister zuletzt
@@ -1207,17 +1314,30 @@
      ========================================================= */
   function openGuess() {
     const g = state.game;
-    g.phase = 'guess';
-    save();
+    if (!online) { g.phase = 'guess'; save(); }
     const chat = state.chats.find((c) => c.id === g.current.chatId);
     show('screen-guess', 2);
     $('guessWord').textContent = `„${g.current.word}“`;
     $('guessChatName').textContent = chatShortLabel(chat);
+    if (online) {
+      $('guessInput').value = '';
+      $('guessError').textContent = '';
+      renderOnlineGuess();
+      return;
+    }
+    $('guessWait').classList.add('hidden');
     showGuessHandoff();
   }
 
   function renderGuessDots() {
     const c = state.game.current;
+    if (online) {
+      $('guessDots').innerHTML = state.players.map((p) => {
+        const cls = c.guessed && c.guessed[p.id] ? 'done' : '';
+        return `<span class="dot ${cls}" title="${esc(p.name)}">${esc(Array.from(p.name)[0].toUpperCase())}</span>`;
+      }).join('');
+      return;
+    }
     $('guessDots').innerHTML = c.guessOrder.map((id, i) => {
       const p = player(id);
       const cls = c.guesses[id] !== undefined ? 'done' : i === c.guessIdx ? 'current' : '';
@@ -1253,6 +1373,7 @@
       $('guessError').textContent = 'Bitte eine ganze Zahl ab 0 eingeben.';
       return;
     }
+    if (online) { onlineSubmitGuess(n); return; }
     const c = state.game.current;
     // Jede Zahl darf pro Runde nur einmal getippt werden – wer später dran ist, muss ausweichen
     if (Object.values(c.guesses).includes(n)) {
@@ -1264,7 +1385,7 @@
     $('guessInput').value = '';
     save();
     if (c.guessIdx >= c.guessOrder.length) {
-      evaluateRound();
+      evaluateRound(state.game, state.chats.find((x) => x.id === c.chatId), state.players);
       openResult(true);
     } else {
       showGuessHandoff();
@@ -1281,14 +1402,13 @@
     return 0;
   }
 
-  function evaluateRound() {
-    const g = state.game;
+  // Wertet die Runde aus und schreibt Punkte, Schlücke und Ergebnis in g
+  function evaluateRound(g, chat, players) {
     const c = g.current;
-    const chat = state.chats.find((x) => x.id === c.chatId);
     const { count, hits } = countWord(chat, c.word);
-    const n = state.players.length;
+    const n = players.length;
 
-    const rows = state.players.map((p) => ({ id: p.id, guess: c.guesses[p.id], diff: Math.abs(c.guesses[p.id] - count) }));
+    const rows = players.map((p) => ({ id: p.id, guess: c.guesses[p.id], diff: Math.abs(c.guesses[p.id] - count) }));
     rows.sort((a, b) => a.diff - b.diff || a.guess - b.guess);
     // Platzierung mit Gleichstand (1, 1, 3, …)
     rows.forEach((r) => { r.place = 1 + rows.filter((o) => o.diff < r.diff).length; });
@@ -1347,6 +1467,8 @@
     save();
     const chat = state.chats.find((x) => x.id === c.chatId);
     show('screen-result', 3);
+    const token = renderToken;
+    $('resultWait').classList.add('hidden');
 
     $('resWord').textContent = c.word;
     $('resChat').textContent = chatShortLabel(chat);
@@ -1369,15 +1491,18 @@
         };
         requestAnimationFrame(tick);
       });
+      if (token !== renderToken) return;
     }
     numEl.textContent = fmt(res.count);
     void numEl.offsetWidth;
     numEl.classList.add('landed');
     if (animate) await sleep(500);
+    if (token !== renderToken) return;
 
     // Ranking aufdecken – vom schlechtesten zum besten für Spannung
     const medal = (place, loser) => loser ? '🥴' : place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : `${place}.`;
-    const rowsHTML = res.rows.map((r) => {
+    // Online kann jemand den Raum verlassen haben – nur anwesende Spieler anzeigen
+    const rowsHTML = res.rows.filter((r) => player(r.id)).map((r) => {
       const p = player(r.id);
       return `<div class="result-row ${r.place === 1 && !r.loser ? 'winner' : ''} ${r.loser ? 'loser' : ''}">
         <div class="place">${medal(r.place, r.loser)}</div>
@@ -1393,12 +1518,14 @@
     const els = Array.from($('resRows').children);
     for (let i = els.length - 1; i >= 0; i--) {
       if (animate) await sleep(380);
+      if (token !== renderToken) return;
       els[i].classList.add('show');
     }
 
     // Trink-Banner
-    const losers = res.rows.filter((r) => r.loser);
+    const losers = res.rows.filter((r) => r.loser && player(r.id));
     if (animate) await sleep(450);
+    if (token !== renderToken) return;
     if (res.allTied) {
       $('resBanners').innerHTML = `<div class="drink-banner"><span class="emoji">🤝</span><div>Alle gleich weit daneben! Jeder bekommt ${res.rows[0].points} Punkte – und alle trinken <b>${ROUND_DRINK} Schlücke</b>.</div></div>`;
     } else if (losers.length) {
@@ -1419,6 +1546,11 @@
     $('scoreCard').classList.remove('hidden');
 
     const last = g.round >= g.totalRounds;
+    if (online && !isHost()) {
+      $('resultWait').textContent = `⏳ Warte, bis ${pname(online.room.hostUid)} ${last ? 'das Finale startet' : 'die nächste Runde startet'} …`;
+      $('resultWait').classList.remove('hidden');
+      return;
+    }
     $('btnNextRound').textContent = last ? '🏆 Zum Finale!' : `➡️ Weiter zu Runde ${g.round + 1}`;
     $('btnNextRound').classList.remove('hidden');
   }
@@ -1448,7 +1580,12 @@
     g.phase = 'final';
     save();
     show('screen-final');
+    const token = renderToken;
     $('finalRounds').textContent = g.totalRounds;
+    $('distLog').innerHTML = '';
+    $('btnRematch').classList.toggle('hidden', !!online && !isHost());
+    $('btnBackToLobby').classList.toggle('hidden', !!online && !isHost());
+    $('btnWipeFinal').textContent = online ? '🚪 Raum verlassen & Daten löschen' : '🗑️ Spiel beenden & alle Daten löschen';
     const ranked = rankedPlayers();
     const n = ranked.length;
     const topPts = ranked[0].points;
@@ -1492,12 +1629,14 @@
     $('statsCard').classList.add('hidden');
 
     await sleep(2400);
+    if (token !== renderToken) return;
     confetti(140);
     const rows = Array.from($('finalList').children);
     for (let i = rows.length - 1; i >= 0; i--) {
       rows[i].classList.add('show');
       await sleep(220);
     }
+    if (token !== renderToken) return;
 
     // Banner
     const banners = [];
@@ -1512,9 +1651,16 @@
     $('finalBanners').innerHTML = banners.join('');
     const bEls = Array.from($('finalBanners').children);
     for (const b of bEls) { b.classList.add('show'); await sleep(350); }
+    if (token !== renderToken) return;
 
-    // Schlücke verteilen (bei mehreren Siegern nacheinander)
-    if (winners.length < n) setupDistribution(winners.map((w) => w.id), 0);
+    // Schlücke verteilen (bei mehreren Siegern nacheinander, online jeder auf seinem Handy)
+    if (online) {
+      const me = online.uid;
+      if (winners.length < n && winners.some((w) => w.id === me) && !(g.distributions && g.distributions[me])) setupDistribution([me], 0);
+      renderDistLog();
+    } else if (winners.length < n) {
+      setupDistribution(winners.map((w) => w.id), 0);
+    }
 
     // Statistik
     renderStats();
@@ -1554,8 +1700,12 @@
 
     $('btnConfirmSips').onclick = () => {
       const parts = targets.filter((p) => alloc[p.id] > 0).map((p) => `<b>${esc(p.name)}</b>: ${alloc[p.id]} ${alloc[p.id] === 1 ? 'Schluck' : 'Schlücke'}`);
-      targets.forEach((p) => { state.game.sips[p.id] = (state.game.sips[p.id] || 0) + alloc[p.id]; });
-      save();
+      if (online) {
+        onlineDistribute(alloc);
+      } else {
+        targets.forEach((p) => { state.game.sips[p.id] = (state.game.sips[p.id] || 0) + alloc[p.id]; });
+        save();
+      }
       $('sipRows').innerHTML = '';
       $('btnConfirmSips').classList.add('hidden');
       $('sipSummary').innerHTML = `<div class="drink-banner show"><span class="emoji">🍻</span><div>${parts.join('<br>')}<br><span class="small muted">Prost!</span></div></div>`;
@@ -1584,6 +1734,653 @@
     if (sharp && bullseyes[sharp.id]) rows.push(['🎯 Meiste Volltreffer', `${esc(sharp.name)} (${bullseyes[sharp.id]}×)`]);
     rows.push(['📜 Alle Wörter', hist.map((h) => `„${esc(h.word)}“`).join(', ')]);
     $('statsTable').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td style="text-align:right;font-weight:700">${v}</td></tr>`).join('');
+  }
+
+  /* =========================================================
+     ONLINE-MODUS (Firebase)
+     Jeder spielt am eigenen Gerät. Der Raum (Namen, Wörter, Ergebnisse) liegt in
+     Firestore. Chats verlassen nie das Gerät, auf dem sie hochgeladen wurden:
+     Nur dieses Gerät zählt das Wort aus und schickt Ergebnis + Beweismaterial.
+     ========================================================= */
+  const FIREBASE_VERSION = '10.12.2';
+  // Optional: Nur nötig, wenn die Seite NICHT über Firebase Hosting läuft
+  // (Firebase Hosting liefert die Konfiguration automatisch unter /__/firebase/init.json).
+  const FIREBASE_CONFIG = { apiKey: '', authDomain: '', projectId: '', appId: '' };
+  const ONLINE_KEY = 'chatRouletteOnline_v1';
+  const ROOM_TTL_MS = 24 * 60 * 60 * 1000; // Räume löschen sich nach 24 h Inaktivität selbst
+  const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const USE_EMULATOR = new URLSearchParams(location.search).has('emulator') && ['localhost', '127.0.0.1'].includes(location.hostname);
+
+  let fb = null;          // Firestore-Funktionen + db + uid
+  let onlineChats = {};   // chatId -> Nachrichten (nur die eigenen, nur lokal)
+
+  const isHost = () => !!online && !!online.room && online.room.hostUid === online.uid;
+  const roomRef = () => fb.doc(fb.db, 'rooms', online.roomId);
+  const expiry = () => fb.Timestamp.fromMillis(Date.now() + ROOM_TTL_MS);
+  const formatCode = (c) => c.slice(0, 4) + '-' + c.slice(4);
+  const normalizeCode = (c) => String(c).toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  function newRoomCode() {
+    const bytes = crypto.getRandomValues(new Uint8Array(8));
+    return Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+  }
+
+  function loadOnlineLocal() {
+    try { return JSON.parse(sessionStorage.getItem(ONLINE_KEY)) || null; } catch (e) { return null; }
+  }
+
+  function saveOnlineLocal() {
+    if (!online) return;
+    try {
+      sessionStorage.setItem(ONLINE_KEY, JSON.stringify({ roomId: online.roomId, name: online.name, chats: onlineChats }));
+    } catch (e) {
+      toast('⚠️ Chat ist zu groß zum Zwischenspeichern – bitte die Seite nicht neu laden.');
+    }
+  }
+
+  async function getFirebaseConfig() {
+    if (USE_EMULATOR) return { apiKey: 'demo-key', authDomain: 'localhost', projectId: 'demo-chatroulette', appId: 'demo' };
+    if (FIREBASE_CONFIG.apiKey) return FIREBASE_CONFIG;
+    if (location.protocol.startsWith('http')) {
+      try {
+        const res = await fetch('/__/firebase/init.json');
+        if (res.ok) return await res.json();
+      } catch (e) { /* nicht über Firebase Hosting */ }
+    }
+    return null;
+  }
+
+  async function connectFirebase() {
+    if (fb) return fb;
+    const config = await getFirebaseConfig();
+    if (!config) throw new Error('not-configured');
+    const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
+    const [appM, authM, fsM] = await Promise.all([
+      import(base + 'firebase-app.js'),
+      import(base + 'firebase-auth.js'),
+      import(base + 'firebase-firestore.js'),
+    ]);
+    const app = appM.initializeApp(config);
+    // Anonyme Anmeldung, nur für diesen Tab – kein Konto, keine E-Mail
+    const auth = authM.initializeAuth(app, { persistence: authM.browserSessionPersistence });
+    if (USE_EMULATOR) authM.connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    const db = fsM.getFirestore(app);
+    if (USE_EMULATOR) fsM.connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    await auth.authStateReady();
+    if (!auth.currentUser) await authM.signInAnonymously(auth);
+    fb = { ...fsM, db, uid: auth.currentUser.uid };
+    return fb;
+  }
+
+  function onlineErrorText(e) {
+    if (e && e.message === 'not-configured') return 'Der Online-Modus ist noch nicht eingerichtet. Die Seite muss über Firebase Hosting laufen (siehe README).';
+    return 'Keine Verbindung zum Server. Bitte Internetverbindung prüfen.';
+  }
+
+  /* ---------- Beitreten / Erstellen ---------- */
+  function openOnline(prefillCode = '') {
+    show('screen-online');
+    $('onlineError').textContent = '';
+    const local = loadOnlineLocal();
+    if (local && local.name && !$('onlineName').value) $('onlineName').value = local.name;
+    if (prefillCode) $('roomCodeInput').value = formatCode(prefillCode);
+    setTimeout(() => $(($('onlineName').value ? 'roomCodeInput' : 'onlineName')).focus(), 300);
+  }
+
+  function readOnlineName() {
+    const name = $('onlineName').value.trim().replace(/\s+/g, ' ');
+    if (!name) { $('onlineError').textContent = 'Bitte gib zuerst deinen Namen ein.'; $('onlineName').focus(); return null; }
+    return name;
+  }
+
+  async function withBusy(btn, fn) {
+    btn.disabled = true;
+    try { await fn(); } finally { btn.disabled = false; }
+  }
+
+  async function createRoom() {
+    const name = readOnlineName();
+    if (!name) return;
+    $('onlineError').textContent = '';
+    await withBusy($('btnCreateRoom'), async () => {
+      try {
+        await connectFirebase();
+        const code = newRoomCode();
+        await fb.setDoc(fb.doc(fb.db, 'rooms', code), {
+          hostUid: fb.uid,
+          status: 'lobby',
+          createdAt: fb.serverTimestamp(),
+          expiresAt: fb.Timestamp.fromMillis(Date.now() + ROOM_TTL_MS),
+          settings: { rounds: 10 },
+          players: { [fb.uid]: { name, color: COLORS[0], joinedAt: Date.now() } },
+          chats: {},
+          game: null,
+        });
+        enterRoom(code, name);
+      } catch (e) {
+        console.warn(e);
+        $('onlineError').textContent = onlineErrorText(e);
+      }
+    });
+  }
+
+  async function joinRoom() {
+    const name = readOnlineName();
+    if (!name) return;
+    const code = normalizeCode($('roomCodeInput').value);
+    if (code.length !== 8) { $('onlineError').textContent = 'Der Raum-Code hat 8 Zeichen, z. B. ABCD-EFGH.'; return; }
+    $('onlineError').textContent = '';
+    await withBusy($('btnJoinRoom'), async () => {
+      try {
+        await connectFirebase();
+        // Nur wer im Raum ist, darf ihn lesen – daher erst eintragen, dann lesen
+        await fb.updateDoc(fb.doc(fb.db, 'rooms', code), { [`players.${fb.uid}`]: { name, color: rand(COLORS), joinedAt: Date.now() } });
+        enterRoom(code, name);
+      } catch (e) {
+        console.warn(e);
+        $('onlineError').textContent = e && (e.code === 'permission-denied' || e.code === 'not-found')
+          ? 'Raum nicht gefunden, schon voll oder das Spiel läuft bereits.'
+          : onlineErrorText(e);
+      }
+    });
+  }
+
+  function enterRoom(code, name) {
+    const local = loadOnlineLocal();
+    onlineChats = local && local.roomId === code ? local.chats || {} : {};
+    online = { roomId: code, uid: fb.uid, name, room: null, lastKey: '', counting: false, firstSnapshot: true, unsub: null };
+    state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
+    saveOnlineLocal();
+    // Metadaten-Änderungen mitnehmen: so merken wir, wann eigene Schreibvorgänge vom Server bestätigt sind
+    online.unsub = fb.onSnapshot(roomRef(), { includeMetadataChanges: true }, onRoomSnapshot, (err) => {
+      // Nach dem Auflösen oder Entfernen darf man den Raum nicht mehr lesen
+      leaveLocal(err && err.code === 'permission-denied' ? 'Der Raum wurde aufgelöst oder du wurdest entfernt.' : 'Die Verbindung zum Raum wurde getrennt.');
+    });
+  }
+
+  async function resumeOnline() {
+    const local = loadOnlineLocal();
+    if (!local || !local.roomId) return;
+    try {
+      await connectFirebase();
+      enterRoom(local.roomId, local.name);
+    } catch (e) {
+      openOnline(local.roomId);
+      $('onlineError').textContent = onlineErrorText(e);
+    }
+  }
+
+  function leaveLocal(message) {
+    if (online && online.unsub) online.unsub();
+    online = null;
+    onlineChats = {};
+    state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
+    try { sessionStorage.removeItem(ONLINE_KEY); } catch (e) { /* ignorieren */ }
+    initStart();
+    show('screen-start');
+    if (message) toast(message);
+  }
+
+  async function onlineLeave() {
+    if (!online) return;
+    try {
+      if (isHost()) {
+        await fb.deleteDoc(roomRef());
+      } else {
+        const update = { [`players.${online.uid}`]: fb.deleteField() };
+        state.chats.filter((c) => c.ownerId === online.uid).forEach((c) => { update[`chats.${c.id}`] = fb.deleteField(); });
+        await fb.updateDoc(roomRef(), update);
+      }
+    } catch (e) { console.warn(e); }
+    leaveLocal();
+  }
+
+  /* ---------- Synchronisierung ---------- */
+  function mirrorRoom(room) {
+    state.players = Object.entries(room.players || {})
+      .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))
+      .map(([id, p]) => ({ id, name: p.name, color: p.color }));
+    state.chats = Object.entries(room.chats || {})
+      .sort((a, b) => (a[1].uploadedAt || 0) - (b[1].uploadedAt || 0))
+      .map(([id, c]) => ({
+        id,
+        ownerId: c.ownerUid,
+        partnerIds: c.partnerUids || [],
+        fileName: c.fileName,
+        messageCount: c.messageCount,
+        lost: !!c.lost,
+        messages: onlineChats[id] || null,
+      }));
+    state.game = room.game || null;
+    state.settings = { rounds: (room.settings && room.settings.rounds) || 10 };
+  }
+
+  function onRoomSnapshot(snap) {
+    if (!online) return;
+    if (!snap.exists()) { leaveLocal('Der Raum wurde aufgelöst.'); return; }
+    const room = snap.data();
+    if (!room.players || !room.players[online.uid]) { leaveLocal('Du bist nicht mehr in diesem Raum.'); return; }
+    online.pendingWrites = snap.metadata.hasPendingWrites;
+    const json = JSON.stringify(room);
+    if (json === online.lastJson) {
+      // Nur Bestätigung vom Server, Inhalt unverändert – nichts neu zeichnen
+      if (!online.pendingWrites) maybeCount();
+      return;
+    }
+    online.lastJson = json;
+    online.room = room;
+    mirrorRoom(room);
+    if (online.firstSnapshot) {
+      online.firstSnapshot = false;
+      fixUpSelf(room);
+    }
+    renderOnline();
+  }
+
+  // Doppelte Namen/Farben auflösen und Chats markieren, die nach einem Tab-Neustart fehlen
+  function fixUpSelf(room) {
+    const me = online.uid;
+    const update = {};
+    const others = Object.entries(room.players).filter(([id]) => id !== me).map(([, p]) => p);
+    const mine = room.players[me];
+    if (others.some((p) => p.color === mine.color)) {
+      const free = COLORS.find((c) => !others.some((p) => p.color === c));
+      if (free) update[`players.${me}.color`] = free;
+    }
+    if (others.some((p) => p.name.toLowerCase() === mine.name.toLowerCase())) {
+      let i = 2;
+      while (others.some((p) => p.name.toLowerCase() === `${mine.name} ${i}`.toLowerCase())) i++;
+      update[`players.${me}.name`] = `${mine.name} ${i}`;
+    }
+    Object.entries(room.chats || {}).forEach(([id, c]) => {
+      if (c.ownerUid === me && !c.lost && !onlineChats[id]) update[`chats.${id}.lost`] = true;
+    });
+    if (Object.keys(update).length) fb.updateDoc(roomRef(), update).catch((e) => console.warn(e));
+  }
+
+  function renderOnline() {
+    const room = online.room;
+    const g = room.game;
+    const key = room.status === 'lobby' || !g ? 'lobby' : `${room.status}|${g.round}|${g.current && g.current.roundKey}|${g.phase}`;
+    const changed = key !== online.lastKey;
+    online.lastKey = key;
+
+    if (key === 'lobby') {
+      if (changed) { show('screen-room'); online.uploadKey = null; }
+      renderRoomLobby();
+      return;
+    }
+    switch (g.phase) {
+      case 'round':
+        if (changed) startRound();
+        else updateRerollButtons();
+        break;
+      case 'guess':
+      case 'counting':
+        if (changed && !$('screen-guess').classList.contains('active')) openGuess();
+        else renderOnlineGuess();
+        maybeCount();
+        break;
+      case 'result':
+        if (changed) openResult(true);
+        break;
+      case 'final':
+        if (changed) openFinal();
+        else { renderDistLog(); renderStats(); }
+        break;
+    }
+  }
+
+  /* ---------- Raum-Lobby ---------- */
+  function renderRoomLobby() {
+    const room = online.room;
+    const me = online.uid;
+    const host = isHost();
+    $('roomCodeText').textContent = formatCode(online.roomId);
+
+    $('roomPlayers').innerHTML = state.players.map((p) => `
+      <div class="card player-card">
+        <div class="player-head" style="margin-bottom:0">
+          ${avatarHTML(p)}
+          <div class="player-name">${esc(p.name)}</div>
+          ${p.id === room.hostUid ? '<span class="badge">👑 Host</span>' : ''}
+          ${p.id === me ? '<span class="badge">Du</span>' : ''}
+          ${host && p.id !== me ? `<button class="icon-btn" data-kick="${p.id}" title="Aus dem Raum entfernen">✕</button>` : ''}
+        </div>
+      </div>`).join('');
+    $('roomPlayers').querySelectorAll('[data-kick]').forEach((b) => b.onclick = () => kickPlayer(b.dataset.kick));
+
+    // Eigener Upload
+    const others = state.players.filter((p) => p.id !== me);
+    if (!pendingPartners[me]) pendingPartners[me] = new Set();
+    pendingPartners[me].forEach((pid) => { if (!player(pid)) pendingPartners[me].delete(pid); });
+    // Upload-Bereich nur neu aufbauen, wenn sich die Mitspieler ändern – sonst ginge eine laufende Dateiauswahl verloren
+    const uploadKey = others.map((o) => o.id + ':' + o.name).join('|');
+    if (uploadKey === online.uploadKey && $('roomFile')) { renderRoomChats(); renderRoomSettings(); return; }
+    online.uploadKey = uploadKey;
+    const partnerHTML = others.length === 1
+      ? `<div class="small muted" style="margin-bottom:8px">Chat mit <b>${esc(others[0].name)}</b></div>`
+      : others.length > 1
+        ? `<div class="small" style="font-weight:700">Mit wem ist der Chat?</div><div class="chip-row">${others.map((o) => `<button class="chip ${pendingPartners[me].has(o.id) ? 'on' : ''}" data-partner="${o.id}">${esc(o.name)}</button>`).join('')}</div>`
+        : `<div class="small muted" style="margin-bottom:8px">Warte auf Mitspieler – du kannst trotzdem schon hochladen.</div>`;
+    $('roomUpload').innerHTML = `
+      <div class="upload-zone" id="roomZone">
+        ${partnerHTML}
+        <label class="btn small secondary file-label" style="width:100%">
+          ⬆️ .txt-Datei(en) wählen oder hierher ziehen
+          <input type="file" accept=".txt,text/plain" multiple id="roomFile">
+        </label>
+        <div class="small muted" style="margin-top:6px">WhatsApp → Chat öffnen → ⋮ / Kontaktname → „Chat exportieren“ → „Ohne Medien“.</div>
+      </div>`;
+    $('roomUpload').querySelectorAll('[data-partner]').forEach((b) => b.onclick = () => {
+      const set = pendingPartners[me];
+      set.has(b.dataset.partner) ? set.delete(b.dataset.partner) : set.add(b.dataset.partner);
+      b.classList.toggle('on', set.has(b.dataset.partner));
+    });
+    $('roomFile').onchange = () => { handleOnlineFiles($('roomFile').files); $('roomFile').value = ''; };
+    const zone = $('roomZone');
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragover'); handleOnlineFiles(e.dataTransfer.files); });
+    renderRoomChats();
+    renderRoomSettings();
+  }
+
+  function renderRoomChats() {
+    const me = online.uid;
+    const host = isHost();
+    // Alle Chats im Raum (nur Metadaten)
+    $('roomChats').innerHTML = state.chats.length ? state.chats.map((c) => `
+      <div class="chat-item">
+        <span>${c.lost ? '⚠️' : '💬'}</span>
+        <div class="ci-main">
+          <div class="ci-title">Chat ${esc(chatLabel(c))}</div>
+          <div class="ci-sub">${c.lost ? 'Nicht mehr verfügbar (Tab wurde geschlossen) · ' : ''}von ${esc(pname(c.ownerId))} · ${fmt(c.messageCount)} Nachrichten</div>
+        </div>
+        ${c.ownerId === me || host ? `<button class="icon-btn" data-delchat="${c.id}" title="Chat entfernen">🗑️</button>` : ''}
+      </div>`).join('') : '<p class="muted small">Noch kein Chat. Einer reicht – egal von wem.</p>';
+    $('roomChats').querySelectorAll('[data-delchat]').forEach((b) => b.onclick = () => deleteOnlineChat(b.dataset.delchat));
+  }
+
+  function renderRoomSettings() {
+    const room = online.room;
+    const host = isHost();
+    if (host) {
+      $('roomSettings').innerHTML = `
+        <label class="lbl" for="roomRounds">Anzahl Runden</label>
+        <select class="input" id="roomRounds">
+          ${[[10, '10 Runden (Standard)'], [5, '5 Runden (Schnell)'], [15, '15 Runden (Lang)']].map(([v, l]) => `<option value="${v}" ${state.settings.rounds === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select>`;
+      $('roomRounds').onchange = () => fb.updateDoc(roomRef(), { 'settings.rounds': parseInt($('roomRounds').value, 10) || 10 }).catch((e) => console.warn(e));
+    } else {
+      $('roomSettings').innerHTML = `<p class="muted">${state.settings.rounds} Runden – legt ${esc(pname(room.hostUid))} fest.</p>`;
+    }
+    const problem = onlineLobbyProblems();
+    $('roomError').textContent = host ? problem : '';
+    $('btnRoomStart').classList.toggle('hidden', !host);
+    $('btnRoomStart').disabled = !!problem;
+    $('roomWaitHost').classList.toggle('hidden', host);
+    $('roomWaitHost').textContent = `⏳ Warte, bis ${pname(room.hostUid)} das Spiel startet …`;
+    $('btnLeaveRoom').textContent = host ? '🚪 Raum auflösen' : '🚪 Verlassen';
+  }
+
+  function onlineLobbyProblems() {
+    if (state.players.length < 2) return 'Mindestens 2 Spieler werden benötigt – teilt den Raum-Code!';
+    if (!playableChats().length) return 'Ladet mindestens einen Chat hoch – egal von wem.';
+    return '';
+  }
+
+  async function handleOnlineFiles(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const me = online.uid;
+    const others = state.players.filter((p) => p.id !== me);
+    const partners = others.length === 1 ? [others[0].id] : Array.from(pendingPartners[me] || []);
+    const update = {};
+    for (const file of files) {
+      if (!/\.txt$/i.test(file.name) && file.type !== 'text/plain') { toast(`„${file.name}“ ist keine .txt-Datei.`); continue; }
+      try {
+        const messages = parseWhatsApp(await file.text());
+        if (!messages.length) { toast(`„${file.name}“ enthält keine Nachrichten.`); continue; }
+        const id = uid();
+        onlineChats[id] = messages;
+        // An den Server gehen nur Name der Datei und Anzahl der Nachrichten – nie der Inhalt
+        update[`chats.${id}`] = { ownerUid: me, partnerUids: partners, fileName: file.name, messageCount: messages.length, uploadedAt: Date.now(), lost: false };
+      } catch (e) {
+        toast(`„${file.name}“ konnte nicht gelesen werden.`);
+      }
+    }
+    const added = Object.keys(update).length;
+    if (!added) return;
+    saveOnlineLocal();
+    pendingPartners[me] = new Set();
+    try {
+      await fb.updateDoc(roomRef(), update);
+      toast(`✅ ${added} Chat${added > 1 ? 's' : ''} hinzugefügt – der Inhalt bleibt auf deinem Handy.`);
+    } catch (e) {
+      console.warn(e);
+      toast('Chat konnte nicht angemeldet werden. Verbindung prüfen.');
+    }
+  }
+
+  async function deleteOnlineChat(id) {
+    delete onlineChats[id];
+    saveOnlineLocal();
+    try { await fb.updateDoc(roomRef(), { [`chats.${id}`]: fb.deleteField() }); } catch (e) { console.warn(e); }
+  }
+
+  async function kickPlayer(id) {
+    if (!confirm(`${pname(id)} aus dem Raum entfernen?`)) return;
+    const update = { [`players.${id}`]: fb.deleteField() };
+    state.chats.filter((c) => c.ownerId === id).forEach((c) => { update[`chats.${c.id}`] = fb.deleteField(); });
+    try { await fb.updateDoc(roomRef(), update); } catch (e) { console.warn(e); }
+  }
+
+  async function shareRoom() {
+    const url = `${location.origin}${location.pathname}${location.search}#raum=${online.roomId}`;
+    const text = `Spiel Chat-Roulette mit mir! Raum-Code: ${formatCode(online.roomId)}`;
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Chat-Roulette', text, url }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('🔗 Link kopiert!');
+    } catch (e) {
+      prompt('Link zum Teilen:', url);
+    }
+  }
+
+  /* ---------- Spielablauf (Host) ---------- */
+  async function onlineStartGame() {
+    if (!isHost() || onlineLobbyProblems()) return;
+    const g = newGame(state.players.map((p) => p.id), state.settings.rounds);
+    advanceRound(g, state.players, playableChats());
+    try { await fb.updateDoc(roomRef(), { status: 'game', game: g, expiresAt: expiry() }); } catch (e) { console.warn(e); toast('Spiel konnte nicht gestartet werden.'); }
+  }
+
+  async function onlineNextRound() {
+    if (!isHost()) return;
+    const g = structuredClone(state.game);
+    try {
+      if (g.round >= g.totalRounds) {
+        await fb.updateDoc(roomRef(), { 'game.phase': 'final', status: 'final', expiresAt: expiry() });
+      } else {
+        advanceRound(g, state.players, playableChats());
+        await fb.updateDoc(roomRef(), { game: g, expiresAt: expiry() });
+      }
+    } catch (e) { console.warn(e); toast('Verbindung prüfen und nochmal versuchen.'); }
+  }
+
+  async function onlineToLobby() {
+    if (!isHost()) return;
+    try { await fb.updateDoc(roomRef(), { status: 'lobby', game: null }); } catch (e) { console.warn(e); }
+  }
+
+  // Notbremse für den Host, falls ein Handy weg ist (z. B. Wort-Meister oder Chat-Besitzer offline)
+  async function onlineReroll() {
+    if (!isHost() || !confirm('Runde mit neuem Chat und neuem Wort-Meister neu auslosen?')) return;
+    const g = structuredClone(state.game);
+    const current = g.current;
+    let chats = playableChats();
+    if (chats.length > 1) chats = chats.filter((c) => c.id !== current.chatId);
+    let players = state.players;
+    if (players.length > 1) players = players.filter((p) => p.id !== current.masterId);
+    g.round -= 1;
+    g.lastChatId = null;
+    g.lastMasterId = current.masterId;
+    advanceRound(g, players, chats);
+    try { await fb.updateDoc(roomRef(), { game: g, expiresAt: expiry() }); } catch (e) { console.warn(e); }
+  }
+
+  function updateRerollButtons() {
+    document.querySelectorAll('.reroll-btn').forEach((b) => b.classList.toggle('hidden', !isHost()));
+  }
+
+  /* ---------- Wort & Schätzungen ---------- */
+  async function onlineLockWord(word) {
+    $('btnLockWord').disabled = true;
+    try {
+      await fb.updateDoc(roomRef(), {
+        'game.current.word': word,
+        'game.current.guessOrder': state.players.map((p) => p.id),
+        'game.phase': 'guess',
+      });
+      $('wordInput').value = '';
+    } catch (e) {
+      console.warn(e);
+      $('wordError').textContent = 'Konnte das Wort nicht senden. Verbindung prüfen.';
+    } finally {
+      $('btnLockWord').disabled = false;
+    }
+  }
+
+  function renderOnlineGuess() {
+    const g = state.game;
+    const c = g.current;
+    const me = online.uid;
+    renderGuessDots();
+    $('guessHandoff').classList.add('hidden');
+    const needGuess = g.phase === 'guess' && !(c.guessed && c.guessed[me]) && !!player(me);
+    if (needGuess) {
+      $('guessWait').classList.add('hidden');
+      if ($('guessForm').classList.contains('hidden')) {
+        const p = player(me);
+        $('guessForm').classList.remove('hidden');
+        $('guessPrompt').innerHTML = `${avatarHTML(p, 'sm')} &nbsp;${esc(p.name)}, deine Schätzung:`;
+        setTimeout(() => $('guessInput').focus(), 150);
+      }
+      return;
+    }
+    $('guessForm').classList.add('hidden');
+    const chat = state.chats.find((x) => x.id === c.chatId);
+    const missing = state.players.filter((p) => !(c.guessed && c.guessed[p.id])).map((p) => p.name);
+    $('guessWaitText').textContent = g.phase === 'counting' || !missing.length
+      ? `🧮 Das Handy von ${chat ? pname(chat.ownerId) : '?'} zählt aus …`
+      : `✅ Tipp abgegeben! Warte auf ${joinNames(missing)} …`;
+    $('guessWait').classList.remove('hidden');
+    updateRerollButtons();
+  }
+
+  async function onlineSubmitGuess(n) {
+    const g = state.game;
+    const rk = g.current.roundKey;
+    const me = online.uid;
+    const ttl = expiry();
+    const batch = fb.writeBatch(fb.db);
+    // „taken“ darf je Zahl nur einmal angelegt werden – so fällt eine doppelte Zahl auf, ohne fremde Tipps zu verraten
+    batch.set(fb.doc(fb.db, 'rooms', online.roomId, 'taken', `${rk}_${n}`), { uid: me, expiresAt: ttl });
+    batch.set(fb.doc(fb.db, 'rooms', online.roomId, 'guesses', `${rk}_${me}`), { uid: me, roundKey: rk, value: n, expiresAt: ttl });
+    batch.update(roomRef(), { [`game.current.guessed.${me}`]: true });
+    $('btnSubmitGuess').disabled = true;
+    try {
+      await batch.commit();
+      $('guessInput').value = '';
+      $('guessError').textContent = '';
+    } catch (e) {
+      console.warn(e);
+      $('guessError').textContent = e && e.code === 'permission-denied'
+        ? `Die ${fmt(n)} hat schon jemand getippt – bitte wähle eine andere Zahl.`
+        : 'Konnte den Tipp nicht senden. Verbindung prüfen.';
+    } finally {
+      $('btnSubmitGuess').disabled = false;
+    }
+  }
+
+  /* ---------- Auszählen (nur auf dem Gerät, dem der Chat gehört) ---------- */
+  async function maybeCount() {
+    const g = state.game;
+    // Erst zählen, wenn der Server alle Tipps bestätigt hat (nicht auf lokale, noch ungesendete Daten reagieren)
+    if (!online || online.counting || online.pendingWrites || !g || !['guess', 'counting'].includes(g.phase)) return;
+    const chat = state.chats.find((c) => c.id === g.current.chatId);
+    if (!chat || chat.ownerId !== online.uid) return;
+    if (!onlineChats[chat.id]) {
+      if (!chat.lost) fb.updateDoc(roomRef(), { [`chats.${chat.id}.lost`]: true }).catch((e) => console.warn(e));
+      return;
+    }
+    const allGuessed = (room) => Object.keys(room.players).every((id) => room.game.current.guessed && room.game.current.guessed[id]);
+    if (g.phase === 'guess' && !allGuessed(online.room)) return;
+
+    online.counting = true;
+    const ref = roomRef();
+    const rk = g.current.roundKey;
+    const ABORT = 'abort';
+    try {
+      // 1) Schätzphase schließen – erst dann dürfen die Tipps gelesen werden
+      await fb.runTransaction(fb.db, async (tx) => {
+        const d = (await tx.get(ref)).data();
+        if (!d || !d.game || d.game.current.roundKey !== rk) throw new Error(ABORT);
+        if (d.game.phase === 'guess') {
+          if (!allGuessed(d)) throw new Error(ABORT);
+          tx.update(ref, { 'game.phase': 'counting' });
+        } else if (d.game.phase !== 'counting') throw new Error(ABORT);
+      });
+      // 2) Tipps einsammeln und lokal im Chat zählen
+      const guesses = {};
+      for (const p of state.players) {
+        const snap = await fb.getDoc(fb.doc(fb.db, 'rooms', online.roomId, 'guesses', `${rk}_${p.id}`));
+        if (snap.exists()) guesses[p.id] = snap.data().value;
+      }
+      // 3) Ergebnis inkl. Beweismaterial veröffentlichen
+      await fb.runTransaction(fb.db, async (tx) => {
+        const d = (await tx.get(ref)).data();
+        if (!d || !d.game || d.game.phase !== 'counting' || d.game.current.roundKey !== rk) throw new Error(ABORT);
+        const g2 = d.game;
+        const players = Object.keys(d.players).filter((id) => guesses[id] !== undefined).map((id) => ({ id }));
+        g2.current.guesses = guesses;
+        evaluateRound(g2, { messages: onlineChats[chat.id] }, players);
+        g2.phase = 'result';
+        tx.update(ref, { game: g2, expiresAt: expiry() });
+      });
+    } catch (e) {
+      if (!e || e.message !== ABORT) {
+        console.warn(e);
+        setTimeout(maybeCount, 2000); // z. B. kurz offline – später erneut versuchen
+      }
+    } finally {
+      online.counting = false;
+    }
+  }
+
+  /* ---------- Finale: Schlücke verteilen ---------- */
+  async function onlineDistribute(alloc) {
+    const update = { [`game.distributions.${online.uid}`]: alloc };
+    Object.entries(alloc).forEach(([id, n]) => { if (n > 0) update[`game.sips.${id}`] = fb.increment(n); });
+    try { await fb.updateDoc(roomRef(), update); } catch (e) { console.warn(e); toast('Konnte die Schlücke nicht senden.'); }
+  }
+
+  function renderDistLog() {
+    if (!online || !state.game) return;
+    const g = state.game;
+    const ranked = rankedPlayers();
+    const top = ranked[0].points;
+    const winners = ranked.filter((p) => p.points === top);
+    if (winners.length === ranked.length) { $('distLog').innerHTML = ''; return; }
+    $('distLog').innerHTML = winners.filter((w) => w.id !== online.uid).map((w) => {
+      const alloc = g.distributions && g.distributions[w.id];
+      if (!alloc) return `<div class="card center muted">⏳ ${esc(w.name)} verteilt gerade ${WINNER_SIPS} Schlücke …</div>`;
+      const parts = Object.entries(alloc).filter(([, n]) => n > 0).map(([id, n]) => `<b>${esc(pname(id))}</b>: ${n} ${n === 1 ? 'Schluck' : 'Schlücke'}`);
+      return `<div class="drink-banner show"><span class="emoji">🍻</span><div>${esc(w.name)} verteilt:<br>${parts.join('<br>')}</div></div>`;
+    }).join('');
   }
 
   /* =========================================================
@@ -1645,14 +2442,18 @@
   $('btnGuessPlus').onclick = () => bump(1);
 
   $('btnNextRound').onclick = () => {
+    if (online) { onlineNextRound(); return; }
     const g = state.game;
     if (g.round >= g.totalRounds) openFinal();
     else nextRound();
   };
 
-  $('btnRematch').onclick = startGame;
-  const wipeAndRestart = () => {
-    if (!confirm('Alle Spieler, Chats und Spielstände von diesem Gerät löschen?')) return;
+  $('btnRematch').onclick = () => (online ? onlineStartGame() : startGame());
+  const wipeAndRestart = async () => {
+    if (online) {
+      if (!confirm(isHost() ? 'Raum für alle auflösen und deine Daten löschen?' : 'Raum verlassen und deine Daten von diesem Gerät löschen?')) return;
+      await onlineLeave();
+    } else if (!confirm('Alle Spieler, Chats und Spielstände von diesem Gerät löschen?')) return;
     wipeAll();
     for (const id in pendingPartners) delete pendingPartners[id];
     initStart();
@@ -1660,10 +2461,32 @@
     toast('🗑️ Alle Daten wurden gelöscht.');
   };
   $('btnWipeStart').onclick = wipeAndRestart;
+
+  $('btnOnline').onclick = () => openOnline();
+  $('btnResumeOnline').onclick = resumeOnline;
+  $('btnOnlineBack').onclick = () => { initStart(); show('screen-start'); };
+  $('btnCreateRoom').onclick = createRoom;
+  $('btnJoinRoom').onclick = joinRoom;
+  $('roomCodeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom(); });
+  $('btnShareRoom').onclick = shareRoom;
+  $('btnRoomStart').onclick = onlineStartGame;
+  $('btnLeaveRoom').onclick = async () => {
+    if (!confirm(isHost() ? 'Raum für alle auflösen?' : 'Raum verlassen?')) return;
+    await onlineLeave();
+  };
+  document.querySelectorAll('.reroll-btn').forEach((b) => b.onclick = onlineReroll);
   $('btnWipeFinal').onclick = wipeAndRestart;
-  $('btnBackToLobby').onclick = openLobby;
+  $('btnBackToLobby').onclick = () => (online ? onlineToLobby() : openLobby());
 
   initStart();
+  // Einladungslink: …#raum=ABCDEFGH
+  const hashCode = (location.hash.match(/raum=([A-Za-z0-9-]+)/) || [])[1];
+  if (hashCode) {
+    history.replaceState(null, '', location.pathname + location.search);
+    const local = loadOnlineLocal();
+    if (local && local.roomId === normalizeCode(hashCode)) resumeOnline();
+    else openOnline(normalizeCode(hashCode));
+  }
 })();
 </script>
 </body>

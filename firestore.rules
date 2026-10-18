@@ -1,0 +1,73 @@
+rules_version = '2';
+
+// Chat-Roulette – Sicherheitsregeln
+// - Nur angemeldete (anonyme) Nutzer, die Mitglied eines Raums sind, können ihn lesen.
+// - Räume können nicht aufgelistet werden; man braucht den Code.
+// - Fremde können sich nur selbst eintragen, solange der Raum in der Lobby ist.
+// - Tipps sind bis zum Auszählen nur für den eigenen Spieler lesbar.
+// - Chat-Inhalte liegen nie in der Datenbank.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /rooms/{roomId} {
+      function isMember() {
+        return signedIn() && request.auth.uid in resource.data.players;
+      }
+
+      function joiningSelf() {
+        let before = resource.data.players;
+        let after = request.resource.data.players;
+        return signedIn()
+          && resource.data.status == 'lobby'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['players'])
+          && after.diff(before).affectedKeys().hasOnly([request.auth.uid])
+          && after[request.auth.uid].name is string
+          && after[request.auth.uid].name.size() <= 30
+          && after.size() <= 12;
+      }
+
+      function room() {
+        return get(/databases/$(database)/documents/rooms/$(roomId)).data;
+      }
+
+      function roomMember() {
+        return signedIn() && request.auth.uid in room().players;
+      }
+
+      allow get: if isMember();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.status == 'lobby'
+        && request.resource.data.players.keys().hasOnly([request.auth.uid]);
+      allow update: if isMember() || joiningSelf();
+      allow delete: if signedIn() && resource.data.hostUid == request.auth.uid;
+
+      // Tipps: Dokument-ID = <roundKey>_<uid>
+      match /guesses/{guessId} {
+        allow create: if roomMember()
+          && room().game.phase == 'guess'
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.roundKey == room().game.current.roundKey
+          && guessId == room().game.current.roundKey + '_' + request.auth.uid
+          && request.resource.data.value is int
+          && request.resource.data.value >= 0;
+        allow get: if roomMember()
+          && (resource.data.uid == request.auth.uid || room().game.phase in ['counting', 'result']);
+        allow list, update, delete: if false;
+      }
+
+      // Belegte Zahlen: Dokument-ID = <roundKey>_<zahl>. Nur anlegen, nie lesen –
+      // ein zweites Anlegen schlägt fehl und zeigt so an, dass die Zahl schon vergeben ist.
+      match /taken/{takenId} {
+        allow create: if roomMember()
+          && room().game.phase == 'guess'
+          && takenId.matches(room().game.current.roundKey + '_[0-9]+');
+        allow read, update, delete: if false;
+      }
+    }
+  }
+}
