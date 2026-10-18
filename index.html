@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0620">
+<!-- Datenschutz: Der Browser darf keinerlei Verbindungen nach außen aufbauen – Chats können die Seite nicht verlassen -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
 <title>Chat-Roulette – Das WhatsApp-Trinkspiel</title>
 <style>
   :root {
@@ -483,8 +487,9 @@
     <div class="btn-row">
       <button class="btn block" id="btnNewGame">🎉 Neues Spiel</button>
       <button class="btn secondary block hidden" id="btnResume">⏯️ Spiel fortsetzen</button>
+      <button class="btn danger block hidden" id="btnWipeStart">🗑️ Alle Daten löschen</button>
     </div>
-    <p class="small muted center" style="margin-top:18px">🔒 Eure Chats verlassen nie dieses Gerät – alles wird lokal im Browser verarbeitet.<br>Bitte trinkt verantwortungsvoll. Wasser zählt auch als Schluck. 💧</p>
+    <p class="small muted center" style="margin-top:18px">🔒 Eure Chats verlassen nie dieses Gerät – alles wird lokal im Browser verarbeitet und beim Schließen des Tabs automatisch gelöscht.<br>Bitte trinkt verantwortungsvoll. Wasser zählt auch als Schluck. 💧</p>
   </section>
 
   <!-- ===================== LOBBY ===================== -->
@@ -640,6 +645,7 @@
     <div class="btn-row">
       <button class="btn secondary" id="btnBackToLobby">🛋️ Zur Lobby</button>
       <button class="btn" id="btnRematch">🔁 Revanche</button>
+      <button class="btn danger block" id="btnWipeFinal">🗑️ Spiel beenden & alle Daten löschen</button>
     </div>
   </section>
 </div>
@@ -722,14 +728,23 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
   }
 
+  // Nur sessionStorage: übersteht ein Neuladen, wird aber beim Schließen des Tabs vom Browser gelöscht
   function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     catch (e) { /* Speicher voll oder blockiert – Spiel läuft trotzdem im Arbeitsspeicher weiter */ }
   }
 
+  function wipeAll() {
+    state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignorieren */ }
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignorieren */ }
+  }
+
   function load() {
+    // Chats, die ältere Versionen dauerhaft gespeichert haben, entfernen
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignorieren */ }
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = sessionStorage.getItem(STORAGE_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
       if (s && Array.isArray(s.players) && Array.isArray(s.chats)) return s;
@@ -831,12 +846,13 @@
      ========================================================= */
   function initStart() {
     const saved = load();
+    $('btnResume').classList.toggle('hidden', !saved);
+    $('btnWipeStart').classList.toggle('hidden', !saved);
     if (saved) {
-      $('btnResume').classList.remove('hidden');
       $('btnResume').textContent = saved.game ? `⏯️ Spiel fortsetzen (Runde ${saved.game.round})` : '⏯️ Zur gespeicherten Lobby';
     }
     $('btnNewGame').onclick = () => {
-      state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
+      wipeAll();
       save();
       openLobby();
     };
@@ -1635,6 +1651,16 @@
   };
 
   $('btnRematch').onclick = startGame;
+  const wipeAndRestart = () => {
+    if (!confirm('Alle Spieler, Chats und Spielstände von diesem Gerät löschen?')) return;
+    wipeAll();
+    for (const id in pendingPartners) delete pendingPartners[id];
+    initStart();
+    show('screen-start');
+    toast('🗑️ Alle Daten wurden gelöscht.');
+  };
+  $('btnWipeStart').onclick = wipeAndRestart;
+  $('btnWipeFinal').onclick = wipeAndRestart;
   $('btnBackToLobby').onclick = openLobby;
 
   initStart();
