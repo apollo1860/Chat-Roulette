@@ -472,9 +472,9 @@
       <h3>So läuft’s</h3>
       <ul class="rules-list">
         <li data-i="📱">Pass-and-Play: Ihr spielt alle an <b>einem Gerät</b> und reicht es weiter.</li>
-        <li data-i="📂">Jeder lädt seine exportierten WhatsApp-Chats (.txt) mit den Mitspielern hoch.</li>
-        <li data-i="🎰">10 Runden: Jede Runde wird ein Chat und ein <b>Wort-Meister</b> ausgelost.</li>
-        <li data-i="🤫">Der Wort-Meister wählt geheim ein Wort – alle schätzen, wie oft es im Chat vorkommt.</li>
+        <li data-i="📂">Ladet eure exportierten WhatsApp-Chats (.txt) hoch – zu zweit reicht euer gemeinsamer Chat.</li>
+        <li data-i="🎰">10 Runden: Jede Runde wird ein <b>Wort-Meister</b> ausgelost – und bei mehreren Chats auch der Chat.</li>
+        <li data-i="✍️">Der Wort-Meister wählt ein Wort – alle schätzen, wie oft es im Chat vorkommt.</li>
         <li data-i="🥴">Wer am weitesten daneben liegt, trinkt <b>3 Schlücke</b>.</li>
         <li data-i="🏆">Am Ende verteilt der Sieger 5 Schlücke, der Letzte muss selbst ran.</li>
       </ul>
@@ -490,7 +490,7 @@
   <!-- ===================== LOBBY ===================== -->
   <section class="screen" id="screen-lobby">
     <h2>🛋️ Lobby</h2>
-    <p class="lead">Tragt alle Mitspieler ein. Danach lädt jeder seine Chats hoch und wählt aus, mit wem der Chat ist.</p>
+    <p class="lead">Tragt alle Mitspieler ein. Danach ladet ihr eure Chats hoch – zu zweit reicht euer gemeinsamer Chat, ab 3 Spielern wählt jeder aus, mit wem sein Chat ist.</p>
 
     <div class="card">
       <label class="lbl" for="playerNameInput">Spieler hinzufügen</label>
@@ -523,7 +523,7 @@
   <!-- ===================== ROUND INTRO ===================== -->
   <section class="screen" id="screen-round">
     <h2 class="center"><span class="gradient-text" id="roundTitle">Runde 1</span></h2>
-    <p class="center muted">Das Chat-Roulette dreht sich …</p>
+    <p class="center muted" id="roundSub">Das Chat-Roulette dreht sich …</p>
 
     <div class="card glow-card">
       <label class="lbl">🎰 Der Chat dieser Runde</label>
@@ -538,7 +538,7 @@
         <div id="masterAvatar"></div>
         <div>
           <div style="font-size:28px;font-weight:900" id="masterName"></div>
-          <div class="muted small">denkt sich ein geheimes Wort aus</div>
+          <div class="muted small">sucht sich ein Wort aus</div>
         </div>
       </div>
     </div>
@@ -548,28 +548,15 @@
 
   <!-- ===================== WORD INPUT ===================== -->
   <section class="screen" id="screen-word">
-    <div class="card glow-card handoff" id="wordHandoff">
-      <div class="phone">📱</div>
-      <p class="muted">Gib das Gerät an</p>
-      <div class="who gradient-text" id="wordHandoffName"></div>
-      <p class="muted small">Alle anderen: Wegschauen! 🙈</p>
-      <button class="btn block" id="btnWordReady" style="margin-top:20px"></button>
+    <h2>✍️ Das Wort dieser Runde</h2>
+    <p class="lead"><b id="wordMasterName"></b>, wähle ein Wort, das im Chat <b id="wordChatName"></b> vorkommen könnte.</p>
+    <div class="card">
+      <label class="lbl" for="wordInput">Wort</label>
+      <input class="input big" id="wordInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="z. B. Bier">
+      <div class="field-error" id="wordError"></div>
+      <p class="small muted">Gezählt wird nur das <b>exakte ganze Wort</b> – Groß-/Kleinschreibung egal. Bei „Bier“ zählt „bier“ und „BIER“, aber nicht „Bierchen“.</p>
     </div>
-
-    <div class="hidden" id="wordForm">
-      <h2>🤫 Dein geheimes Wort</h2>
-      <p class="lead"><b id="wordMasterName"></b>, wähle ein Wort, das im Chat <b id="wordChatName"></b> vorkommen könnte.</p>
-      <div class="card">
-        <label class="lbl" for="secretWord">Geheimes Wort</label>
-        <div class="input-row">
-          <input class="input big" id="secretWord" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="••••••">
-          <button class="icon-btn" id="btnToggleWord" title="Wort anzeigen/verbergen" style="width:58px;height:auto;font-size:24px">👁️</button>
-        </div>
-        <div class="field-error" id="wordError"></div>
-        <p class="small muted">Gezählt wird nur das <b>exakte ganze Wort</b> – Groß-/Kleinschreibung egal. Bei „Bier“ zählt „bier“ und „BIER“, aber nicht „Bierchen“.</p>
-      </div>
-      <button class="btn block" id="btnLockWord">🔒 Wort einloggen</button>
-    </div>
+    <button class="btn block" id="btnLockWord">✅ Wort festlegen</button>
   </section>
 
   <!-- ===================== GUESSING ===================== -->
@@ -929,6 +916,11 @@
       return;
     }
 
+    if (state.players.length === 2) {
+      renderDuoLobby(list);
+      return;
+    }
+
     list.innerHTML = state.players.map((p) => {
       const myChats = state.chats.filter((c) => c.ownerId === p.id);
       const sharedChats = state.chats.filter((c) => c.ownerId !== p.id && c.partnerIds.includes(p.id));
@@ -969,6 +961,45 @@
       </div>`;
     }).join('');
 
+    bindLobbyEvents(list);
+  }
+
+  // Zu zweit gibt es nur einen gemeinsamen Chat – keine Partnerwahl nötig
+  function renderDuoLobby(list) {
+    const [a, b] = state.players;
+    list.innerHTML = `
+      ${state.players.map((p) => `
+      <div class="card player-card">
+        <div class="player-head" style="margin-bottom:0">
+          ${avatarHTML(p)}
+          <div class="player-name">${esc(p.name)}</div>
+          <button class="icon-btn" data-remove="${p.id}" title="Spieler entfernen">✕</button>
+        </div>
+      </div>`).join('')}
+      <div class="card">
+        <h3>💬 Euer gemeinsamer Chat</h3>
+        ${state.chats.map((c) => `
+          <div class="chat-item">
+            <span>💬</span>
+            <div class="ci-main">
+              <div class="ci-title">Chat zwischen ${esc(a.name)} und ${esc(b.name)}</div>
+              <div class="ci-sub">${esc(c.fileName)} · ${fmt(c.messages.length)} Nachrichten</div>
+            </div>
+            <button class="icon-btn" data-delchat="${c.id}" title="Chat entfernen">🗑️</button>
+          </div>`).join('')}
+        ${state.chats.length ? '' : `
+        <div class="upload-zone" data-zone="${a.id}" data-duo="1">
+          <label class="btn small secondary file-label" style="width:100%">
+            ⬆️ .txt-Datei wählen oder hierher ziehen
+            <input type="file" accept=".txt,text/plain" data-upload="${a.id}" data-duo="1">
+          </label>
+          <div class="small muted" style="margin-top:6px">WhatsApp → Chat öffnen → ⋮ / Kontaktname → „Chat exportieren“ → „Ohne Medien“.</div>
+        </div>`}
+      </div>`;
+    bindLobbyEvents(list);
+  }
+
+  function bindLobbyEvents(list) {
     list.querySelectorAll('[data-remove]').forEach((b) => b.onclick = () => removePlayer(b.dataset.remove));
     list.querySelectorAll('[data-delchat]').forEach((b) => b.onclick = () => {
       state.chats = state.chats.filter((c) => c.id !== b.dataset.delchat);
@@ -981,7 +1012,7 @@
       b.classList.toggle('on', set.has(pid));
     });
     list.querySelectorAll('[data-upload]').forEach((inp) => inp.onchange = () => {
-      handleFiles(inp.dataset.upload, inp.files);
+      handleFiles(inp.dataset.upload, inp.files, !!inp.dataset.duo);
       inp.value = '';
     });
     list.querySelectorAll('[data-zone]').forEach((zone) => {
@@ -990,17 +1021,18 @@
       zone.addEventListener('drop', (e) => {
         e.preventDefault();
         zone.classList.remove('dragover');
-        handleFiles(zone.dataset.zone, e.dataTransfer.files);
+        handleFiles(zone.dataset.zone, e.dataTransfer.files, !!zone.dataset.duo);
       });
     });
 
     updateLobbyStatus();
   }
 
-  async function handleFiles(ownerId, fileList) {
-    const files = Array.from(fileList || []);
+  async function handleFiles(ownerId, fileList, duo = false) {
+    let files = Array.from(fileList || []);
     if (!files.length) return;
-    const partners = Array.from(pendingPartners[ownerId] || []);
+    if (duo) files = files.slice(0, 1);
+    const partners = duo ? state.players.filter((p) => p.id !== ownerId).map((p) => p.id) : Array.from(pendingPartners[ownerId] || []);
     if (!partners.length && state.players.length > 1) {
       toast('Wähle zuerst aus, mit wem der Chat ist! 👆');
       return;
@@ -1015,6 +1047,7 @@
         const text = await file.text();
         const messages = parseWhatsApp(text);
         if (!messages.length) { toast(`„${file.name}“ enthält keine Nachrichten.`); continue; }
+        if (duo) state.chats = [];
         state.chats.push({ id: uid(), ownerId, partnerIds: partners.slice(), fileName: file.name, messages });
         added++;
       } catch (e) {
@@ -1098,15 +1131,18 @@
 
     const slot = $('chatSlot');
     const slotText = $('chatSlotText');
+    const singleChat = state.chats.length === 1;
+    $('roundSub').textContent = singleChat ? 'Neue Runde, neues Glück!' : 'Das Chat-Roulette dreht sich …';
     slot.classList.remove('landed');
-    slot.classList.add('spinning');
-    const labels = state.chats.map(chatShortLabel);
-    const spins = 18;
-    for (let i = 0; i < spins; i++) {
-      slotText.textContent = labels[i % labels.length] ? rand(labels) : '…';
-      await sleep(60 + i * 9);
+    if (!singleChat) {
+      slot.classList.add('spinning');
+      const labels = state.chats.map(chatShortLabel);
+      for (let i = 0; i < 18; i++) {
+        slotText.textContent = rand(labels);
+        await sleep(60 + i * 9);
+      }
+      slot.classList.remove('spinning');
     }
-    slot.classList.remove('spinning');
     slot.classList.add('landed');
     slotText.textContent = `Chat ${chatLabel(chat)}`;
     $('chatMeta').textContent = `Runde ${g.round}: Es geht um den Chat ${chatLabel(chat)}! · ${fmt(chat.messages.length)} Nachrichten`;
@@ -1118,7 +1154,7 @@
     $('masterCard').style.animation = 'screenIn 0.5s';
 
     await sleep(400);
-    $('btnToWord').textContent = `➡️ Gerät an ${master.name} geben`;
+    $('btnToWord').textContent = `✍️ Wort festlegen`;
     $('btnToWord').classList.remove('hidden');
   }
 
@@ -1132,19 +1168,15 @@
     const master = player(g.current.masterId);
     const chat = state.chats.find((c) => c.id === g.current.chatId);
     show('screen-word', 1);
-    $('wordHandoff').classList.remove('hidden');
-    $('wordForm').classList.add('hidden');
-    $('wordHandoffName').textContent = master.name;
-    $('btnWordReady').textContent = `🙋 Ich bin ${master.name}`;
     $('wordMasterName').textContent = master.name;
     $('wordChatName').textContent = chatShortLabel(chat);
-    $('secretWord').value = '';
-    $('secretWord').type = 'password';
+    $('wordInput').value = '';
     $('wordError').textContent = '';
+    setTimeout(() => $('wordInput').focus(), 300);
   }
 
   function lockWord() {
-    const word = $('secretWord').value.trim().replace(/\s+/g, ' ');
+    const word = $('wordInput').value.trim().replace(/\s+/g, ' ');
     const err = $('wordError');
     if (!word) { err.textContent = 'Bitte gib ein Wort ein.'; return; }
     if (!/[\p{L}\p{N}]/u.test(word)) { err.textContent = 'Das Wort muss mindestens einen Buchstaben oder eine Ziffer enthalten.'; return; }
@@ -1155,7 +1187,7 @@
     g.current.guessOrder = [...others, g.current.masterId];
     g.current.guessIdx = 0;
     g.current.guesses = {};
-    $('secretWord').value = '';
+    $('wordInput').value = '';
     openGuess();
   }
 
@@ -1582,17 +1614,7 @@
   $('btnStartGame').onclick = startGame;
 
   $('btnToWord').onclick = openWord;
-  $('btnWordReady').onclick = () => {
-    $('wordHandoff').classList.add('hidden');
-    $('wordForm').classList.remove('hidden');
-    setTimeout(() => $('secretWord').focus(), 150);
-  };
-  $('btnToggleWord').onclick = () => {
-    const inp = $('secretWord');
-    inp.type = inp.type === 'password' ? 'text' : 'password';
-    $('btnToggleWord').textContent = inp.type === 'password' ? '👁️' : '🙈';
-  };
-  $('secretWord').addEventListener('keydown', (e) => { if (e.key === 'Enter') lockWord(); });
+  $('wordInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') lockWord(); });
   $('btnLockWord').onclick = lockWord;
 
   $('btnGuessReady').onclick = showGuessForm;
