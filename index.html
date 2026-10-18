@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0620">
+<title>Chat-Roulette – Das WhatsApp-Trinkspiel</title>
+<style>
+  :root {
+    --bg: #0b0620;
+    --bg2: #140a35;
+    --card: rgba(255, 255, 255, 0.06);
+    --card-strong: rgba(255, 255, 255, 0.10);
+    --border: rgba(255, 255, 255, 0.12);
+    --text: #f4f0ff;
+    --muted: #a99fd0;
+    --pink: #ff3ea5;
+    --violet: #8b5cf6;
+    --cyan: #22d3ee;
+    --lime: #a3e635;
+    --gold: #fbbf24;
+    --red: #ff4d6d;
+    --radius: 20px;
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+    --glow-pink: 0 0 24px rgba(255, 62, 165, 0.55);
+    --glow-cyan: 0 0 24px rgba(34, 211, 238, 0.5);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { min-height: 100%; }
+
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    background-image:
+      radial-gradient(1200px 600px at 10% -10%, rgba(139, 92, 246, 0.35), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(255, 62, 165, 0.25), transparent 60%),
+      radial-gradient(800px 600px at 50% 120%, rgba(34, 211, 238, 0.18), transparent 60%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .app {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+    min-height: 100vh;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .logo {
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: 0.5px;
+    background: linear-gradient(90deg, var(--pink), var(--violet), var(--cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    white-space: nowrap;
+  }
+  .round-pill {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--card-strong);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .round-pill b { color: var(--text); }
+
+  /* ---------- Stepper ---------- */
+  .stepper {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 22px;
+  }
+  .stepper span {
+    flex: 1;
+    height: 5px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.1);
+    transition: background 0.4s;
+  }
+  .stepper span.done { background: linear-gradient(90deg, var(--violet), var(--pink)); }
+  .stepper span.active { background: var(--cyan); box-shadow: var(--glow-cyan); }
+
+  /* ---------- Screens ---------- */
+  .screen { display: none; animation: screenIn 0.45s cubic-bezier(.2, .8, .2, 1); }
+  .screen.active { display: block; }
+  @keyframes screenIn {
+    from { opacity: 0; transform: translateY(18px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+
+  h1 { font-size: clamp(34px, 8vw, 56px); line-height: 1.05; font-weight: 900; margin-bottom: 12px; }
+  h2 { font-size: clamp(26px, 6vw, 36px); line-height: 1.15; font-weight: 800; margin-bottom: 10px; }
+  h3 { font-size: 21px; font-weight: 800; margin-bottom: 8px; }
+  p.lead { font-size: 19px; color: var(--muted); margin-bottom: 20px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 15px; }
+  .center { text-align: center; }
+
+  .gradient-text {
+    background: linear-gradient(90deg, var(--pink), var(--violet) 50%, var(--cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .glow-card {
+    position: relative;
+    border: 1px solid rgba(255, 62, 165, 0.4);
+    box-shadow: var(--shadow), 0 0 40px rgba(139, 92, 246, 0.25);
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font: inherit;
+    font-weight: 800;
+    font-size: 19px;
+    padding: 16px 24px;
+    border-radius: 16px;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    background: linear-gradient(135deg, var(--pink), var(--violet));
+    box-shadow: 0 8px 24px rgba(255, 62, 165, 0.35);
+    transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s, filter 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(255, 62, 165, 0.5); }
+  .btn:active { transform: translateY(1px) scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: grayscale(0.6); }
+  .btn.block { width: 100%; }
+  .btn.secondary {
+    background: var(--card-strong);
+    border: 1px solid var(--border);
+    box-shadow: none;
+  }
+  .btn.secondary:hover { background: rgba(255, 255, 255, 0.16); }
+  .btn.cyan { background: linear-gradient(135deg, var(--cyan), var(--violet)); box-shadow: 0 8px 24px rgba(34, 211, 238, 0.3); }
+  .btn.small { font-size: 15px; padding: 10px 14px; border-radius: 12px; }
+  .btn.danger { background: rgba(255, 77, 109, 0.15); border: 1px solid rgba(255, 77, 109, 0.4); color: #ffb3c1; box-shadow: none; }
+  .icon-btn {
+    width: 40px; height: 40px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card-strong);
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .icon-btn:hover { background: rgba(255, 255, 255, 0.18); }
+
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+  .btn-row > .btn { flex: 1 1 200px; }
+
+  /* ---------- Inputs ---------- */
+  .input, select.input {
+    width: 100%;
+    font: inherit;
+    font-size: 20px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 2px solid var(--border);
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input:focus { border-color: var(--cyan); box-shadow: var(--glow-cyan); }
+  .input.big { font-size: 34px; font-weight: 800; text-align: center; padding: 18px; letter-spacing: 1px; }
+  .input-row { display: flex; gap: 10px; align-items: stretch; }
+  .input-row .input { flex: 1; min-width: 0; }
+  .field-error { color: var(--red); font-size: 15px; margin-top: 8px; min-height: 22px; font-weight: 600; }
+  label.lbl { display: block; font-weight: 700; margin-bottom: 8px; color: var(--muted); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* ---------- Lobby ---------- */
+  .player-card { padding: 16px; }
+  .player-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .avatar {
+    width: 46px; height: 46px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 20px; color: #fff; flex-shrink: 0;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+  }
+  .avatar.sm { width: 34px; height: 34px; font-size: 15px; }
+  .avatar.lg { width: 72px; height: 72px; font-size: 32px; }
+  .player-name { font-weight: 800; font-size: 21px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-badge { font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 99px; white-space: nowrap; }
+  .status-badge.ok { background: rgba(163, 230, 53, 0.15); color: var(--lime); border: 1px solid rgba(163, 230, 53, 0.35); }
+  .status-badge.missing { background: rgba(251, 191, 36, 0.12); color: var(--gold); border: 1px solid rgba(251, 191, 36, 0.35); }
+
+  .chat-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 14px;
+    background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border);
+    margin-bottom: 8px; font-size: 16px;
+  }
+  .chat-item .ci-main { flex: 1; min-width: 0; }
+  .chat-item .ci-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-item .ci-sub { font-size: 13px; color: var(--muted); }
+
+  .upload-zone {
+    border: 2px dashed rgba(139, 92, 246, 0.5);
+    border-radius: 16px;
+    padding: 14px;
+    background: rgba(139, 92, 246, 0.06);
+    margin-top: 8px;
+  }
+  .upload-zone.dragover { border-color: var(--cyan); background: rgba(34, 211, 238, 0.08); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .chip {
+    font: inherit; font-size: 15px; font-weight: 700;
+    padding: 8px 14px; border-radius: 99px;
+    border: 1px solid var(--border); background: var(--card-strong);
+    color: var(--text); cursor: pointer; transition: all 0.15s;
+  }
+  .chip.on { background: linear-gradient(135deg, var(--cyan), var(--violet)); border-color: transparent; box-shadow: var(--glow-cyan); }
+  .file-label { position: relative; overflow: hidden; }
+  .file-label input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  /* ---------- Round intro ---------- */
+  .slot {
+    position: relative;
+    height: 96px;
+    overflow: hidden;
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    margin: 14px 0;
+  }
+  .slot-text {
+    font-size: clamp(22px, 5.5vw, 32px);
+    font-weight: 900;
+    text-align: center;
+    padding: 0 14px;
+  }
+  .slot.spinning .slot-text { animation: slotBlur 0.09s linear infinite; filter: blur(1px); }
+  .slot.landed { border-color: var(--pink); box-shadow: var(--glow-pink); animation: pop 0.45s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes slotBlur { 0% { transform: translateY(-14px); opacity: 0.6; } 100% { transform: translateY(14px); opacity: 0.6; } }
+  @keyframes pop { 0% { transform: scale(0.92); } 100% { transform: scale(1); } }
+
+  .master-reveal { display: flex; align-items: center; gap: 16px; }
+  .crown { font-size: 40px; animation: bob 1.6s ease-in-out infinite; }
+  @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-6px) rotate(6deg); } }
+
+  /* ---------- Hand-off ---------- */
+  .handoff {
+    text-align: center;
+    padding: 36px 20px;
+  }
+  .handoff .phone { font-size: 72px; display: inline-block; animation: wiggle 1.4s ease-in-out infinite; }
+  @keyframes wiggle { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+  .handoff .who { font-size: clamp(32px, 8vw, 48px); font-weight: 900; margin: 10px 0 6px; }
+
+  .word-display {
+    font-size: clamp(36px, 10vw, 60px);
+    font-weight: 900;
+    text-align: center;
+    word-break: break-word;
+    padding: 10px 0;
+    text-shadow: 0 0 30px rgba(255, 62, 165, 0.6);
+  }
+
+  .progress-dots { display: flex; justify-content: center; gap: 8px; margin: 14px 0 4px; flex-wrap: wrap; }
+  .progress-dots .dot {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800;
+    border: 2px solid var(--border); color: var(--muted);
+    transition: all 0.3s;
+  }
+  .progress-dots .dot.done { background: var(--lime); color: #1a2e05; border-color: var(--lime); }
+  .progress-dots .dot.current { border-color: var(--cyan); color: var(--text); box-shadow: var(--glow-cyan); }
+
+  .stepper-num { display: flex; align-items: center; gap: 10px; }
+  .stepper-num .icon-btn { width: 64px; height: 72px; font-size: 30px; font-weight: 900; border-radius: 16px; }
+
+  /* ---------- Result ---------- */
+  .big-number {
+    font-size: clamp(80px, 24vw, 150px);
+    font-weight: 900;
+    line-height: 1;
+    text-align: center;
+    background: linear-gradient(180deg, #fff, var(--cyan));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 30px rgba(34, 211, 238, 0.55));
+    font-variant-numeric: tabular-nums;
+  }
+  .big-number.landed { animation: thump 0.6s cubic-bezier(.2, 1.8, .4, 1); }
+  @keyframes thump { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+  .result-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px; border-radius: 16px;
+    background: rgba(0, 0, 0, 0.28); border: 1px solid var(--border);
+    margin-bottom: 10px;
+    opacity: 0; transform: translateX(-30px);
+  }
+  .result-row.show { animation: slideIn 0.5s cubic-bezier(.2, .9, .3, 1.2) forwards; }
+  @keyframes slideIn { to { opacity: 1; transform: none; } }
+  .result-row .place { font-size: 26px; width: 38px; text-align: center; flex-shrink: 0; }
+  .result-row .rr-main { flex: 1; min-width: 0; }
+  .result-row .rr-name { font-weight: 800; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .result-row .rr-sub { font-size: 14px; color: var(--muted); }
+  .result-row .rr-pts { font-weight: 900; font-size: 22px; color: var(--lime); white-space: nowrap; }
+  .result-row.winner { border-color: rgba(251, 191, 36, 0.6); box-shadow: 0 0 22px rgba(251, 191, 36, 0.25); }
+  .result-row.loser { border-color: rgba(255, 77, 109, 0.6); background: rgba(255, 77, 109, 0.1); }
+  .result-row.loser.show { animation: slideIn 0.5s cubic-bezier(.2, .9, .3, 1.2) forwards, shake 0.5s 0.6s; }
+  @keyframes shake {
+    0%, 100% { transform: none; }
+    20% { transform: translateX(-8px) rotate(-1deg); }
+    40% { transform: translateX(8px) rotate(1deg); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  .drink-banner {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px; border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255, 77, 109, 0.25), rgba(255, 62, 165, 0.15));
+    border: 1px solid rgba(255, 77, 109, 0.55);
+    font-size: 20px; font-weight: 800;
+    margin: 16px 0;
+    opacity: 0; transform: scale(0.8);
+  }
+  .drink-banner.show { animation: bannerIn 0.6s cubic-bezier(.2, 1.6, .4, 1) forwards; }
+  .drink-banner.good { background: linear-gradient(135deg, rgba(163, 230, 53, 0.2), rgba(34, 211, 238, 0.12)); border-color: rgba(163, 230, 53, 0.5); }
+  .drink-banner .emoji { font-size: 44px; }
+  @keyframes bannerIn { to { opacity: 1; transform: none; } }
+
+  .snippet {
+    font-size: 15px; padding: 10px 12px; border-radius: 12px;
+    background: rgba(0, 0, 0, 0.3); border-left: 3px solid var(--violet);
+    margin-bottom: 8px; word-break: break-word;
+  }
+  .snippet .who { font-weight: 800; color: var(--cyan); }
+  mark { background: var(--pink); color: #fff; padding: 0 4px; border-radius: 5px; font-weight: 800; }
+
+  .score-table { width: 100%; border-collapse: collapse; font-size: 17px; }
+  .score-table td { padding: 8px 4px; border-bottom: 1px solid var(--border); }
+  .score-table td:last-child { text-align: right; font-weight: 800; white-space: nowrap; }
+  .score-table tr:last-child td { border-bottom: none; }
+  #statsTable td { vertical-align: top; }
+  #statsTable td:first-child { white-space: nowrap; padding-right: 12px; }
+  #statsTable td:last-child { white-space: normal; overflow-wrap: anywhere; }
+
+  /* ---------- Finale ---------- */
+  .podium {
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: 10px; margin: 26px 0 10px; min-height: 260px;
+  }
+  .podium-col { flex: 1; max-width: 170px; display: flex; flex-direction: column; align-items: center; }
+  .podium-col .pname { font-weight: 800; font-size: 17px; margin: 8px 0 4px; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .podium-col .ppts { font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .podium-block {
+    width: 100%;
+    border-radius: 16px 16px 6px 6px;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 12px;
+    font-size: 36px; font-weight: 900;
+    transform-origin: bottom;
+    transform: scaleY(0);
+    animation: rise 0.9s cubic-bezier(.2, .9, .3, 1.1) forwards;
+  }
+  .podium-col .pinfo { opacity: 0; animation: fadeUp 0.6s forwards; }
+  .p1 .podium-block { height: 170px; background: linear-gradient(180deg, var(--gold), #b45309); animation-delay: 1.4s; box-shadow: 0 0 40px rgba(251, 191, 36, 0.5); }
+  .p2 .podium-block { height: 120px; background: linear-gradient(180deg, #e5e7eb, #6b7280); animation-delay: 0.8s; }
+  .p3 .podium-block { height: 85px; background: linear-gradient(180deg, #fb923c, #9a3412); animation-delay: 0.3s; }
+  .p1 .pinfo { animation-delay: 2.1s; }
+  .p2 .pinfo { animation-delay: 1.5s; }
+  .p3 .pinfo { animation-delay: 1.0s; }
+  @keyframes rise { to { transform: scaleY(1); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  .final-list .result-row { opacity: 0; }
+
+  .sip-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .sip-row:last-child { border-bottom: none; }
+  .sip-row .sname { flex: 1; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sip-row .scount { width: 40px; text-align: center; font-size: 24px; font-weight: 900; color: var(--pink); }
+  .sip-left { font-size: 22px; font-weight: 900; }
+
+  .confetti-piece {
+    position: fixed; top: -20px; width: 10px; height: 16px; z-index: 50;
+    pointer-events: none; border-radius: 2px;
+    animation: fall linear forwards;
+  }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+  .rules-list { list-style: none; }
+  .rules-list li { padding: 10px 0 10px 40px; position: relative; border-bottom: 1px solid var(--border); font-size: 17px; }
+  .rules-list li:last-child { border-bottom: none; }
+  .rules-list li::before { content: attr(data-i); position: absolute; left: 0; top: 8px; font-size: 22px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px);
+    background: #1e1250; border: 1px solid var(--violet); color: var(--text);
+    padding: 14px 20px; border-radius: 14px; font-weight: 700; z-index: 100;
+    box-shadow: var(--shadow); transition: transform 0.35s cubic-bezier(.2, 1.4, .4, 1);
+    max-width: calc(100% - 32px); text-align: center; font-size: 16px;
+    opacity: 0; visibility: hidden;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 480px) {
+    body { font-size: 17px; }
+    .card { padding: 16px; }
+    .btn { font-size: 18px; padding: 15px 18px; }
+    .podium { gap: 6px; min-height: 230px; }
+    .p1 .podium-block { height: 150px; }
+    .p2 .podium-block { height: 105px; }
+    .p3 .podium-block { height: 75px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="logo">🍻 Chat-Roulette</div>
+    <div class="round-pill hidden" id="roundPill">Runde <b id="roundPillNum">1</b> / <span id="roundPillTotal">10</span></div>
+  </div>
+  <div class="stepper hidden" id="stepper"></div>
+
+  <!-- ===================== START ===================== -->
+  <section class="screen active" id="screen-start">
+    <h1><span class="gradient-text">Chat-Roulette</span></h1>
+    <p class="lead">Das WhatsApp-Trinkspiel: Wie oft habt ihr <i>wirklich</i> „Digga“ geschrieben? Schätzt, trinkt, gewinnt.</p>
+
+    <div class="card glow-card">
+      <h3>So läuft’s</h3>
+      <ul class="rules-list">
+        <li data-i="📱">Pass-and-Play: Ihr spielt alle an <b>einem Gerät</b> und reicht es weiter.</li>
+        <li data-i="📂">Jeder lädt seine exportierten WhatsApp-Chats (.txt) mit den Mitspielern hoch.</li>
+        <li data-i="🎰">10 Runden: Jede Runde wird ein Chat und ein <b>Wort-Meister</b> ausgelost.</li>
+        <li data-i="🤫">Der Wort-Meister wählt geheim ein Wort – alle schätzen, wie oft es im Chat vorkommt.</li>
+        <li data-i="🥴">Wer am weitesten daneben liegt, trinkt <b>3 Schlücke</b>.</li>
+        <li data-i="🏆">Am Ende verteilt der Sieger 5 Schlücke, der Letzte muss selbst ran.</li>
+      </ul>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn block" id="btnNewGame">🎉 Neues Spiel</button>
+      <button class="btn secondary block hidden" id="btnResume">⏯️ Spiel fortsetzen</button>
+    </div>
+    <p class="small muted center" style="margin-top:18px">🔒 Eure Chats verlassen nie dieses Gerät – alles wird lokal im Browser verarbeitet.<br>Bitte trinkt verantwortungsvoll. Wasser zählt auch als Schluck. 💧</p>
+  </section>
+
+  <!-- ===================== LOBBY ===================== -->
+  <section class="screen" id="screen-lobby">
+    <h2>🛋️ Lobby</h2>
+    <p class="lead">Tragt alle Mitspieler ein. Danach lädt jeder seine Chats hoch und wählt aus, mit wem der Chat ist.</p>
+
+    <div class="card">
+      <label class="lbl" for="playerNameInput">Spieler hinzufügen</label>
+      <div class="input-row">
+        <input class="input" id="playerNameInput" maxlength="20" placeholder="Name, z. B. Anna" autocomplete="off">
+        <button class="btn" id="btnAddPlayer" style="padding:14px 20px">＋</button>
+      </div>
+      <div class="field-error" id="playerError"></div>
+    </div>
+
+    <div id="playerList"></div>
+
+    <div class="card">
+      <h3>⚙️ Einstellungen</h3>
+      <label class="lbl" for="roundsSelect" style="margin-top:6px">Anzahl Runden</label>
+      <select class="input" id="roundsSelect">
+        <option value="10" selected>10 Runden (Standard)</option>
+        <option value="5">5 Runden (Schnell)</option>
+        <option value="15">15 Runden (Lang)</option>
+      </select>
+    </div>
+
+    <div class="field-error center" id="lobbyError"></div>
+    <div class="btn-row">
+      <button class="btn secondary" id="btnLobbyBack">← Zurück</button>
+      <button class="btn" id="btnStartGame">🚀 Spiel starten</button>
+    </div>
+  </section>
+
+  <!-- ===================== ROUND INTRO ===================== -->
+  <section class="screen" id="screen-round">
+    <h2 class="center"><span class="gradient-text" id="roundTitle">Runde 1</span></h2>
+    <p class="center muted">Das Chat-Roulette dreht sich …</p>
+
+    <div class="card glow-card">
+      <label class="lbl">🎰 Der Chat dieser Runde</label>
+      <div class="slot" id="chatSlot"><div class="slot-text" id="chatSlotText">…</div></div>
+      <p class="center small muted" id="chatMeta"></p>
+    </div>
+
+    <div class="card hidden" id="masterCard">
+      <label class="lbl">👑 Wort-Meister</label>
+      <div class="master-reveal">
+        <span class="crown">👑</span>
+        <div id="masterAvatar"></div>
+        <div>
+          <div style="font-size:28px;font-weight:900" id="masterName"></div>
+          <div class="muted small">denkt sich ein geheimes Wort aus</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn block hidden" id="btnToWord" style="margin-top:10px"></button>
+  </section>
+
+  <!-- ===================== WORD INPUT ===================== -->
+  <section class="screen" id="screen-word">
+    <div class="card glow-card handoff" id="wordHandoff">
+      <div class="phone">📱</div>
+      <p class="muted">Gib das Gerät an</p>
+      <div class="who gradient-text" id="wordHandoffName"></div>
+      <p class="muted small">Alle anderen: Wegschauen! 🙈</p>
+      <button class="btn block" id="btnWordReady" style="margin-top:20px"></button>
+    </div>
+
+    <div class="hidden" id="wordForm">
+      <h2>🤫 Dein geheimes Wort</h2>
+      <p class="lead"><b id="wordMasterName"></b>, wähle ein Wort, das im Chat <b id="wordChatName"></b> vorkommen könnte.</p>
+      <div class="card">
+        <label class="lbl" for="secretWord">Geheimes Wort</label>
+        <div class="input-row">
+          <input class="input big" id="secretWord" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="••••••">
+          <button class="icon-btn" id="btnToggleWord" title="Wort anzeigen/verbergen" style="width:58px;height:auto;font-size:24px">👁️</button>
+        </div>
+        <div class="field-error" id="wordError"></div>
+        <p class="small muted">Gezählt wird nur das <b>exakte ganze Wort</b> – Groß-/Kleinschreibung egal. Bei „Bier“ zählt „bier“ und „BIER“, aber nicht „Bierchen“.</p>
+      </div>
+      <button class="btn block" id="btnLockWord">🔒 Wort einloggen</button>
+    </div>
+  </section>
+
+  <!-- ===================== GUESSING ===================== -->
+  <section class="screen" id="screen-guess">
+    <div class="card center">
+      <label class="lbl">Das Wort lautet</label>
+      <div class="word-display gradient-text" id="guessWord"></div>
+      <p class="muted small">im Chat <b id="guessChatName"></b></p>
+      <div class="progress-dots" id="guessDots"></div>
+    </div>
+
+    <div class="card glow-card handoff" id="guessHandoff">
+      <div class="phone">📱</div>
+      <p class="muted">Gib das Gerät an</p>
+      <div class="who gradient-text" id="guessHandoffName"></div>
+      <p class="muted small">Die anderen dürfen nicht spicken! 👀</p>
+      <button class="btn block" id="btnGuessReady" style="margin-top:20px"></button>
+    </div>
+
+    <div class="card hidden" id="guessForm">
+      <h3 id="guessPrompt"></h3>
+      <p class="muted small" style="margin-bottom:12px">Wie oft kommt das Wort im Chat vor?</p>
+      <div class="stepper-num">
+        <button class="icon-btn" id="btnGuessMinus" aria-label="weniger">−</button>
+        <input class="input big" id="guessInput" type="number" inputmode="numeric" min="0" max="9999999" step="1" placeholder="0">
+        <button class="icon-btn" id="btnGuessPlus" aria-label="mehr">＋</button>
+      </div>
+      <div class="field-error" id="guessError"></div>
+      <button class="btn block" id="btnSubmitGuess">✅ Schätzung abgeben</button>
+    </div>
+  </section>
+
+  <!-- ===================== RESULT ===================== -->
+  <section class="screen" id="screen-result">
+    <div class="card glow-card center">
+      <label class="lbl">„<span id="resWord"></span>“ kommt im Chat <span id="resChat"></span> vor:</label>
+      <div class="big-number" id="resNumber">0</div>
+      <div class="muted" style="font-size:20px;font-weight:700">mal</div>
+    </div>
+
+    <div id="resRows"></div>
+    <div id="resBanners"></div>
+
+    <div class="card hidden" id="snippetCard">
+      <h3>🔍 Beweismaterial</h3>
+      <div id="snippets"></div>
+    </div>
+
+    <div class="card hidden" id="scoreCard">
+      <h3>📊 Zwischenstand</h3>
+      <table class="score-table" id="scoreTable"></table>
+    </div>
+
+    <button class="btn block hidden" id="btnNextRound"></button>
+  </section>
+
+  <!-- ===================== FINALE ===================== -->
+  <section class="screen" id="screen-final">
+    <h1 class="center"><span class="gradient-text">🏆 Finale!</span></h1>
+    <p class="center lead">Nach <span id="finalRounds">10</span> Runden steht fest, wer der Chat-Kenner ist.</p>
+
+    <div class="podium" id="podium"></div>
+
+    <div class="final-list" id="finalList"></div>
+
+    <div id="finalBanners"></div>
+
+    <div class="card hidden" id="distributeCard">
+      <h3>🎁 <span id="distributeTitle"></span></h3>
+      <p class="muted small" style="margin-bottom:8px">Verteile genau 5 Schlücke an deine Mitspieler. Noch übrig: <span class="sip-left" id="sipLeft">5</span></p>
+      <div id="sipRows"></div>
+      <button class="btn block cyan" id="btnConfirmSips" style="margin-top:14px" disabled>🍻 Schlücke verteilen</button>
+      <div id="sipSummary" class="hidden" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card hidden" id="statsCard">
+      <h3>📈 Statistik</h3>
+      <table class="score-table" id="statsTable"></table>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn secondary" id="btnBackToLobby">🛋️ Zur Lobby</button>
+      <button class="btn" id="btnRematch">🔁 Revanche</button>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* =========================================================
+     Konstanten & Zustand
+     ========================================================= */
+  const STORAGE_KEY = 'chatRouletteState_v1';
+  const ROUND_DRINK = 3;          // Schlücke für den Rundenverlierer
+  const WINNER_SIPS = 5;          // Schlücke, die der Gesamtsieger verteilt
+  const COLORS = ['#ff3ea5', '#8b5cf6', '#22d3ee', '#a3e635', '#fbbf24', '#fb7185', '#38bdf8', '#f472b6', '#34d399', '#c084fc', '#f97316', '#60a5fa'];
+  const STEPS = ['Runde', 'Wort', 'Schätzen', 'Ergebnis'];
+
+  /**
+   * state.players: [{ id, name, color }]
+   * state.chats:   [{ id, ownerId, partnerIds:[...], fileName, messages:[{author,text}] }]
+   * state.game:    null | { totalRounds, round, scores:{id:pts}, sips:{id:n}, masterCount:{id:n},
+   *                          lastChatId, current:{ chatId, masterId, word, guessOrder, guessIdx, guesses:{id:n}, result }, history:[] , phase }
+   */
+  let state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
+
+  /* =========================================================
+     Hilfsfunktionen
+     ========================================================= */
+  const $ = (id) => document.getElementById(id);
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const shuffle = (arr) => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const player = (id) => state.players.find((p) => p.id === id);
+  const pname = (id) => (player(id) ? player(id).name : '?');
+  const fmt = (n) => Number(n).toLocaleString('de-DE');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function avatarHTML(p, size = '') {
+    if (!p) return '';
+    const initial = esc(Array.from(p.name.trim())[0] || '?').toUpperCase();
+    return `<span class="avatar ${size}" style="background:${p.color}">${initial}</span>`;
+  }
+
+  function joinNames(names) {
+    if (names.length <= 1) return names.join('');
+    return names.slice(0, -1).join(', ') + ' und ' + names[names.length - 1];
+  }
+
+  function chatParticipants(chat) {
+    return [chat.ownerId, ...chat.partnerIds].filter((id, i, a) => player(id) && a.indexOf(id) === i);
+  }
+
+  function chatLabel(chat) {
+    const names = chatParticipants(chat).map(pname);
+    return names.length > 1 ? `zwischen ${joinNames(names)}` : `von ${names[0] || '?'}`;
+  }
+
+  function chatShortLabel(chat) {
+    return joinNames(chatParticipants(chat).map(pname));
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    catch (e) { /* Speicher voll oder blockiert – Spiel läuft trotzdem im Arbeitsspeicher weiter */ }
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw);
+      if (s && Array.isArray(s.players) && Array.isArray(s.chats)) return s;
+    } catch (e) { /* ignorieren */ }
+    return null;
+  }
+
+  /* =========================================================
+     WhatsApp-Parser
+     Unterstützt Android (DE/EN) und iOS-Exporte, z. B.:
+       18.10.26, 21:15 - Anna: Hallo
+       10/18/26, 9:15 PM - Anna: Hi
+       [18.10.26, 21:15:03] Anna: Hallo
+     Systemmeldungen und Medien-Platzhalter werden ignoriert.
+     ========================================================= */
+  const HEADER_RE = /^\[?(\d{1,4}[./-]\d{1,2}[./-]\d{1,4}),?\s+(\d{1,2}[:.]\d{2}(?:[:.]\d{2})?(?:\s?[AaPp]\.?\s?[Mm]\.?)?)\]?\s*(?:[-–—]\s*)?(.*)$/;
+  const MEDIA_RE = /^(<[^>]*(Medien|Media|omitted|weggelassen|ausgeschlossen)[^>]*>|.*\b(Bild|Video|Audio|Sticker|GIF|Dokument|image|video|audio|sticker|document) (weggelassen|omitted)\b.*|Diese Nachricht wurde gelöscht\.?|Du hast diese Nachricht gelöscht\.?|This message was deleted\.?|You deleted this message\.?|<Diese Nachricht wurde bearbeitet>|null)$/i;
+
+  function parseWhatsApp(raw) {
+    const text = raw.replace(/^﻿/, '').replace(/[‎‏‪-‮⁦-⁩]/g, '').replace(/\r\n?/g, '\n');
+    const lines = text.split('\n');
+    const messages = [];
+    let current = null;
+    let headerHits = 0;
+
+    for (const line of lines) {
+      const m = line.match(HEADER_RE);
+      if (m) {
+        headerHits++;
+        const rest = m[3];
+        const colon = rest.indexOf(': ');
+        if (colon > 0 && colon < 60) {
+          current = { author: rest.slice(0, colon).trim(), text: rest.slice(colon + 2) };
+          messages.push(current);
+        } else {
+          current = null; // Systemmeldung (z. B. „Anna hat die Gruppe erstellt“)
+        }
+      } else if (current) {
+        current.text += '\n' + line; // mehrzeilige Nachricht
+      }
+    }
+
+    // Kein WhatsApp-Format erkannt: ganze Datei als Text nutzen
+    if (headerHits === 0) {
+      const fallback = text.trim();
+      return fallback ? [{ author: '', text: fallback }] : [];
+    }
+
+    return messages
+      .map((msg) => ({ author: msg.author, text: msg.text.replace(/\s*<Diese Nachricht wurde bearbeitet>\s*$/i, '').replace(/\s*<This message was edited>\s*$/i, '').trim() }))
+      .filter((msg) => msg.text && !MEDIA_RE.test(msg.text));
+  }
+
+  /* =========================================================
+     Exakte Ganzwortsuche – entspricht \bWORT\b, case-insensitive.
+     JavaScripts \b kennt keine Umlaute (ä, ö, ü, ß …), daher wird die
+     Wortgrenze Unicode-fähig nachgebildet: vor und nach dem Wort darf
+     kein Buchstabe, keine Ziffer und kein Unterstrich stehen.
+     So zählt „schön“ korrekt, „Bier“ aber nicht in „Bierchen“.
+     ========================================================= */
+  function buildWordRegex(word) {
+    const w = escapeRegex(word.trim());
+    return new RegExp(`(?<![\\p{L}\\p{N}\\p{M}_])${w}(?![\\p{L}\\p{N}\\p{M}_])`, 'giu');
+  }
+
+  function countWord(chat, word) {
+    const re = buildWordRegex(word);
+    let count = 0;
+    const hits = [];
+    for (const msg of chat.messages) {
+      const matches = msg.text.match(re);
+      if (matches) {
+        count += matches.length;
+        hits.push(msg);
+      }
+    }
+    return { count, hits };
+  }
+
+  /* =========================================================
+     Navigation
+     ========================================================= */
+  function show(screenId, step = -1) {
+    document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+    $(screenId).classList.add('active');
+    const inGame = !!state.game && step >= 0;
+    $('roundPill').classList.toggle('hidden', !inGame);
+    $('stepper').classList.toggle('hidden', !inGame);
+    if (inGame) {
+      $('roundPillNum').textContent = state.game.round;
+      $('roundPillTotal').textContent = state.game.totalRounds;
+      $('stepper').innerHTML = STEPS.map((_, i) => `<span class="${i < step ? 'done' : i === step ? 'active' : ''}" title="${STEPS[i]}"></span>`).join('');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* =========================================================
+     START
+     ========================================================= */
+  function initStart() {
+    const saved = load();
+    if (saved) {
+      $('btnResume').classList.remove('hidden');
+      $('btnResume').textContent = saved.game ? `⏯️ Spiel fortsetzen (Runde ${saved.game.round})` : '⏯️ Zur gespeicherten Lobby';
+    }
+    $('btnNewGame').onclick = () => {
+      state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
+      save();
+      openLobby();
+    };
+    $('btnResume').onclick = () => {
+      const s = load();
+      if (!s) return openLobby();
+      state = s;
+      if (!state.settings) state.settings = { rounds: 10 };
+      resumeGame();
+    };
+  }
+
+  function resumeGame() {
+    const g = state.game;
+    if (!g) return openLobby();
+    switch (g.phase) {
+      case 'word': return openWord();
+      case 'guess': return openGuess();
+      case 'result': return openResult(false);
+      case 'final': return openFinal();
+      default: return startRound();
+    }
+  }
+
+  /* =========================================================
+     LOBBY
+     ========================================================= */
+  const pendingPartners = {}; // playerId -> Set ausgewählter Chatpartner für den nächsten Upload
+
+  function openLobby() {
+    state.game = null;
+    save();
+    $('roundsSelect').value = String(state.settings.rounds || 10);
+    renderLobby();
+    show('screen-lobby');
+    setTimeout(() => $('playerNameInput').focus(), 300);
+  }
+
+  function addPlayer() {
+    const input = $('playerNameInput');
+    const name = input.value.trim().replace(/\s+/g, ' ');
+    const err = $('playerError');
+    err.textContent = '';
+    if (!name) { err.textContent = 'Bitte einen Namen eingeben.'; return; }
+    if (state.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) { err.textContent = 'Diesen Namen gibt es schon.'; return; }
+    if (state.players.length >= 12) { err.textContent = 'Maximal 12 Spieler.'; return; }
+    const used = state.players.map((p) => p.color);
+    const color = COLORS.find((c) => !used.includes(c)) || rand(COLORS);
+    state.players.push({ id: uid(), name, color });
+    input.value = '';
+    input.focus();
+    save();
+    renderLobby();
+  }
+
+  function removePlayer(id) {
+    const p = player(id);
+    if (!p) return;
+    const owned = state.chats.filter((c) => c.ownerId === id).length;
+    if (owned && !confirm(`${p.name} entfernen? ${owned} hochgeladene(r) Chat(s) werden ebenfalls gelöscht.`)) return;
+    state.players = state.players.filter((x) => x.id !== id);
+    state.chats = state.chats.filter((c) => c.ownerId !== id);
+    state.chats.forEach((c) => { c.partnerIds = c.partnerIds.filter((pid) => pid !== id); });
+    delete pendingPartners[id];
+    save();
+    renderLobby();
+  }
+
+  function playerHasChat(id) {
+    return state.chats.some((c) => chatParticipants(c).includes(id) && chatParticipants(c).length >= 1);
+  }
+
+  function renderLobby() {
+    const list = $('playerList');
+    if (!state.players.length) {
+      list.innerHTML = `<div class="card center muted">Noch keine Spieler. Mindestens 2 werden benötigt. 👯</div>`;
+      updateLobbyStatus();
+      return;
+    }
+
+    list.innerHTML = state.players.map((p) => {
+      const myChats = state.chats.filter((c) => c.ownerId === p.id);
+      const sharedChats = state.chats.filter((c) => c.ownerId !== p.id && c.partnerIds.includes(p.id));
+      const others = state.players.filter((o) => o.id !== p.id);
+      if (!pendingPartners[p.id]) pendingPartners[p.id] = new Set();
+      // ungültige Auswahl entfernen
+      pendingPartners[p.id].forEach((pid) => { if (!player(pid)) pendingPartners[p.id].delete(pid); });
+      const ok = playerHasChat(p.id);
+
+      return `
+      <div class="card player-card">
+        <div class="player-head">
+          ${avatarHTML(p)}
+          <div class="player-name">${esc(p.name)}</div>
+          <span class="status-badge ${ok ? 'ok' : 'missing'}">${ok ? '✓ bereit' : 'Chat fehlt'}</span>
+          <button class="icon-btn" data-remove="${p.id}" title="Spieler entfernen">✕</button>
+        </div>
+        ${myChats.map((c) => `
+          <div class="chat-item">
+            <span>💬</span>
+            <div class="ci-main">
+              <div class="ci-title">Chat ${esc(chatLabel(c))}</div>
+              <div class="ci-sub">${esc(c.fileName)} · ${fmt(c.messages.length)} Nachrichten</div>
+            </div>
+            <button class="icon-btn" data-delchat="${c.id}" title="Chat entfernen">🗑️</button>
+          </div>`).join('')}
+        ${sharedChats.length ? `<div class="small muted" style="margin:4px 0 6px">Auch dabei in: ${sharedChats.map((c) => esc(chatShortLabel(c))).join(' · ')}</div>` : ''}
+        <div class="upload-zone" data-zone="${p.id}">
+          <div class="small" style="font-weight:700">📂 Chat hochladen – mit wem ist der Chat?</div>
+          ${others.length ? `<div class="chip-row">${others.map((o) => `<button class="chip ${pendingPartners[p.id].has(o.id) ? 'on' : ''}" data-chip="${p.id}" data-partner="${o.id}">${esc(o.name)}</button>`).join('')}</div>`
+            : `<div class="small muted" style="margin:8px 0">Füge erst weitere Spieler hinzu, um Chatpartner auszuwählen.</div>`}
+          <label class="btn small secondary file-label" style="width:100%">
+            ⬆️ .txt-Datei(en) wählen oder hierher ziehen
+            <input type="file" accept=".txt,text/plain" multiple data-upload="${p.id}">
+          </label>
+          <div class="small muted" style="margin-top:6px">WhatsApp → Chat öffnen → ⋮ / Kontaktname → „Chat exportieren“ → „Ohne Medien“.</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('[data-remove]').forEach((b) => b.onclick = () => removePlayer(b.dataset.remove));
+    list.querySelectorAll('[data-delchat]').forEach((b) => b.onclick = () => {
+      state.chats = state.chats.filter((c) => c.id !== b.dataset.delchat);
+      save(); renderLobby();
+    });
+    list.querySelectorAll('[data-chip]').forEach((b) => b.onclick = () => {
+      const set = pendingPartners[b.dataset.chip];
+      const pid = b.dataset.partner;
+      set.has(pid) ? set.delete(pid) : set.add(pid);
+      b.classList.toggle('on', set.has(pid));
+    });
+    list.querySelectorAll('[data-upload]').forEach((inp) => inp.onchange = () => {
+      handleFiles(inp.dataset.upload, inp.files);
+      inp.value = '';
+    });
+    list.querySelectorAll('[data-zone]').forEach((zone) => {
+      zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        handleFiles(zone.dataset.zone, e.dataTransfer.files);
+      });
+    });
+
+    updateLobbyStatus();
+  }
+
+  async function handleFiles(ownerId, fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const partners = Array.from(pendingPartners[ownerId] || []);
+    if (!partners.length && state.players.length > 1) {
+      toast('Wähle zuerst aus, mit wem der Chat ist! 👆');
+      return;
+    }
+    let added = 0;
+    for (const file of files) {
+      if (!/\.txt$/i.test(file.name) && file.type !== 'text/plain') {
+        toast(`„${file.name}“ ist keine .txt-Datei.`);
+        continue;
+      }
+      try {
+        const text = await file.text();
+        const messages = parseWhatsApp(text);
+        if (!messages.length) { toast(`„${file.name}“ enthält keine Nachrichten.`); continue; }
+        state.chats.push({ id: uid(), ownerId, partnerIds: partners.slice(), fileName: file.name, messages });
+        added++;
+      } catch (e) {
+        toast(`„${file.name}“ konnte nicht gelesen werden.`);
+      }
+    }
+    if (added) {
+      pendingPartners[ownerId] = new Set();
+      save();
+      renderLobby();
+      toast(`✅ ${added} Chat${added > 1 ? 's' : ''} hochgeladen!`);
+    }
+  }
+
+  function lobbyProblems() {
+    if (state.players.length < 2) return 'Mindestens 2 Spieler werden benötigt.';
+    const missing = state.players.filter((p) => !playerHasChat(p.id)).map((p) => p.name);
+    if (missing.length) return `Noch ohne Chat: ${joinNames(missing)}. Jeder muss mindestens in einem Chat vorkommen.`;
+    if (!state.chats.length) return 'Ladet mindestens einen Chat hoch.';
+    return '';
+  }
+
+  function updateLobbyStatus() {
+    const problem = lobbyProblems();
+    $('lobbyError').textContent = problem;
+    $('btnStartGame').disabled = !!problem;
+  }
+
+  /* =========================================================
+     SPIELSTART & RUNDEN
+     ========================================================= */
+  function startGame() {
+    if (lobbyProblems()) return;
+    const zero = () => Object.fromEntries(state.players.map((p) => [p.id, 0]));
+    state.settings.rounds = parseInt($('roundsSelect').value, 10) || 10;
+    state.game = {
+      totalRounds: state.settings.rounds,
+      round: 0,
+      scores: zero(),
+      sips: zero(),
+      masterCount: zero(),
+      wins: zero(),
+      lastChatId: null,
+      lastMasterId: null,
+      current: null,
+      history: [],
+      phase: 'round',
+    };
+    nextRound();
+  }
+
+  function nextRound() {
+    const g = state.game;
+    g.round++;
+    // Chat zufällig – nach Möglichkeit nicht zweimal hintereinander derselbe
+    const chatPool = state.chats.length > 1 ? state.chats.filter((c) => c.id !== g.lastChatId) : state.chats;
+    const chat = rand(chatPool);
+    // Wort-Meister zufällig, fair verteilt (wer am seltensten dran war)
+    const minCount = Math.min(...state.players.map((p) => g.masterCount[p.id] || 0));
+    let masterPool = state.players.filter((p) => (g.masterCount[p.id] || 0) === minCount);
+    if (masterPool.length > 1) masterPool = masterPool.filter((p) => p.id !== g.lastMasterId);
+    const master = rand(masterPool);
+    g.masterCount[master.id] = (g.masterCount[master.id] || 0) + 1;
+    g.lastChatId = chat.id;
+    g.lastMasterId = master.id;
+    g.current = { chatId: chat.id, masterId: master.id, word: '', guessOrder: [], guessIdx: 0, guesses: {}, result: null };
+    g.phase = 'round';
+    save();
+    startRound();
+  }
+
+  async function startRound() {
+    const g = state.game;
+    const chat = state.chats.find((c) => c.id === g.current.chatId);
+    const master = player(g.current.masterId);
+    show('screen-round', 0);
+    $('roundTitle').textContent = `Runde ${g.round}`;
+    $('masterCard').classList.add('hidden');
+    $('btnToWord').classList.add('hidden');
+    $('chatMeta').textContent = '';
+
+    const slot = $('chatSlot');
+    const slotText = $('chatSlotText');
+    slot.classList.remove('landed');
+    slot.classList.add('spinning');
+    const labels = state.chats.map(chatShortLabel);
+    const spins = 18;
+    for (let i = 0; i < spins; i++) {
+      slotText.textContent = labels[i % labels.length] ? rand(labels) : '…';
+      await sleep(60 + i * 9);
+    }
+    slot.classList.remove('spinning');
+    slot.classList.add('landed');
+    slotText.textContent = `Chat ${chatLabel(chat)}`;
+    $('chatMeta').textContent = `Runde ${g.round}: Es geht um den Chat ${chatLabel(chat)}! · ${fmt(chat.messages.length)} Nachrichten`;
+
+    await sleep(700);
+    $('masterAvatar').innerHTML = avatarHTML(master, 'lg');
+    $('masterName').textContent = master.name;
+    $('masterCard').classList.remove('hidden');
+    $('masterCard').style.animation = 'screenIn 0.5s';
+
+    await sleep(400);
+    $('btnToWord').textContent = `➡️ Gerät an ${master.name} geben`;
+    $('btnToWord').classList.remove('hidden');
+  }
+
+  /* =========================================================
+     WORT-EINGABE
+     ========================================================= */
+  function openWord() {
+    const g = state.game;
+    g.phase = 'word';
+    save();
+    const master = player(g.current.masterId);
+    const chat = state.chats.find((c) => c.id === g.current.chatId);
+    show('screen-word', 1);
+    $('wordHandoff').classList.remove('hidden');
+    $('wordForm').classList.add('hidden');
+    $('wordHandoffName').textContent = master.name;
+    $('btnWordReady').textContent = `🙋 Ich bin ${master.name}`;
+    $('wordMasterName').textContent = master.name;
+    $('wordChatName').textContent = chatShortLabel(chat);
+    $('secretWord').value = '';
+    $('secretWord').type = 'password';
+    $('wordError').textContent = '';
+  }
+
+  function lockWord() {
+    const word = $('secretWord').value.trim().replace(/\s+/g, ' ');
+    const err = $('wordError');
+    if (!word) { err.textContent = 'Bitte gib ein Wort ein.'; return; }
+    if (!/[\p{L}\p{N}]/u.test(word)) { err.textContent = 'Das Wort muss mindestens einen Buchstaben oder eine Ziffer enthalten.'; return; }
+    const g = state.game;
+    g.current.word = word;
+    // Alle Spieler schätzen – in zufälliger Reihenfolge, Wort-Meister zuletzt
+    const others = shuffle(state.players.filter((p) => p.id !== g.current.masterId).map((p) => p.id));
+    g.current.guessOrder = [...others, g.current.masterId];
+    g.current.guessIdx = 0;
+    g.current.guesses = {};
+    $('secretWord').value = '';
+    openGuess();
+  }
+
+  /* =========================================================
+     SCHÄTZ-PHASE (Pass-and-Play)
+     ========================================================= */
+  function openGuess() {
+    const g = state.game;
+    g.phase = 'guess';
+    save();
+    const chat = state.chats.find((c) => c.id === g.current.chatId);
+    show('screen-guess', 2);
+    $('guessWord').textContent = `„${g.current.word}“`;
+    $('guessChatName').textContent = chatShortLabel(chat);
+    showGuessHandoff();
+  }
+
+  function renderGuessDots() {
+    const c = state.game.current;
+    $('guessDots').innerHTML = c.guessOrder.map((id, i) => {
+      const p = player(id);
+      const cls = c.guesses[id] !== undefined ? 'done' : i === c.guessIdx ? 'current' : '';
+      return `<span class="dot ${cls}" title="${esc(p.name)}" style="${cls === 'current' ? `border-color:${p.color}` : ''}">${esc(Array.from(p.name)[0].toUpperCase())}</span>`;
+    }).join('');
+  }
+
+  function showGuessHandoff() {
+    const c = state.game.current;
+    const p = player(c.guessOrder[c.guessIdx]);
+    renderGuessDots();
+    $('guessHandoff').classList.remove('hidden');
+    $('guessForm').classList.add('hidden');
+    $('guessHandoffName').textContent = p.name;
+    $('btnGuessReady').textContent = `🙋 Ich bin ${p.name}`;
+  }
+
+  function showGuessForm() {
+    const c = state.game.current;
+    const p = player(c.guessOrder[c.guessIdx]);
+    $('guessHandoff').classList.add('hidden');
+    $('guessForm').classList.remove('hidden');
+    $('guessPrompt').innerHTML = `${avatarHTML(p, 'sm')} &nbsp;${esc(p.name)}, deine Schätzung:`;
+    $('guessInput').value = '';
+    $('guessError').textContent = '';
+    setTimeout(() => $('guessInput').focus(), 150);
+  }
+
+  function submitGuess() {
+    const raw = $('guessInput').value.trim();
+    const n = Number(raw);
+    if (raw === '' || !Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+      $('guessError').textContent = 'Bitte eine ganze Zahl ab 0 eingeben.';
+      return;
+    }
+    const c = state.game.current;
+    c.guesses[c.guessOrder[c.guessIdx]] = n;
+    c.guessIdx++;
+    $('guessInput').value = '';
+    save();
+    if (c.guessIdx >= c.guessOrder.length) {
+      evaluateRound();
+      openResult(true);
+    } else {
+      showGuessHandoff();
+    }
+  }
+
+  /* =========================================================
+     AUSWERTUNG
+     ========================================================= */
+  function pointsForPlace(place, playerCount) {
+    if (place === 1) return 3;
+    if (place === 2) return playerCount >= 4 ? 2 : playerCount === 3 ? 1 : 0;
+    if (place === 3) return playerCount >= 4 ? 1 : 0;
+    return 0;
+  }
+
+  function evaluateRound() {
+    const g = state.game;
+    const c = g.current;
+    const chat = state.chats.find((x) => x.id === c.chatId);
+    const { count, hits } = countWord(chat, c.word);
+    const n = state.players.length;
+
+    const rows = state.players.map((p) => ({ id: p.id, guess: c.guesses[p.id], diff: Math.abs(c.guesses[p.id] - count) }));
+    rows.sort((a, b) => a.diff - b.diff || a.guess - b.guess);
+    // Platzierung mit Gleichstand (1, 1, 3, …)
+    rows.forEach((r) => { r.place = 1 + rows.filter((o) => o.diff < r.diff).length; });
+
+    const maxDiff = Math.max(...rows.map((r) => r.diff));
+    const allTied = rows.every((r) => r.diff === maxDiff);
+    rows.forEach((r) => {
+      r.loser = !allTied && r.diff === maxDiff;
+      // Verlierer gehen leer aus, alle anderen bekommen Punkte nach Platz
+      r.points = r.loser ? 0 : pointsForPlace(r.place, n);
+      r.sips = r.loser ? ROUND_DRINK : 0;
+    });
+
+    rows.forEach((r) => {
+      g.scores[r.id] = (g.scores[r.id] || 0) + r.points;
+      g.sips[r.id] = (g.sips[r.id] || 0) + r.sips;
+      if (r.place === 1) g.wins[r.id] = (g.wins[r.id] || 0) + 1;
+    });
+
+    // Bis zu 3 Beweis-Nachrichten speichern
+    const snippetSrc = shuffle(hits).slice(0, 3).map((m) => ({ author: m.author, text: m.text.length > 220 ? cutAround(m.text, c.word) : m.text }));
+    c.result = { count, rows, allTied, snippets: snippetSrc };
+    g.history.push({ round: g.round, chatId: c.chatId, masterId: c.masterId, word: c.word, count, rows });
+  }
+
+  function cutAround(text, word) {
+    const re = buildWordRegex(word);
+    const m = re.exec(text);
+    const idx = m ? m.index : 0;
+    const start = Math.max(0, idx - 90);
+    const end = Math.min(text.length, idx + word.length + 90);
+    return (start > 0 ? '… ' : '') + text.slice(start, end) + (end < text.length ? ' …' : '');
+  }
+
+  function highlight(text, word) {
+    const re = buildWordRegex(word);
+    let out = '';
+    let last = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index)) + `<mark>${esc(m[0])}</mark>`;
+      last = m.index + m[0].length;
+    }
+    return out + esc(text.slice(last));
+  }
+
+  /* =========================================================
+     ERGEBNIS
+     ========================================================= */
+  async function openResult(animate) {
+    const g = state.game;
+    const c = g.current;
+    const res = c.result;
+    g.phase = 'result';
+    save();
+    const chat = state.chats.find((x) => x.id === c.chatId);
+    show('screen-result', 3);
+
+    $('resWord').textContent = c.word;
+    $('resChat').textContent = chatShortLabel(chat);
+    $('resRows').innerHTML = '';
+    $('resBanners').innerHTML = '';
+    ['snippetCard', 'scoreCard', 'btnNextRound'].forEach((id) => $(id).classList.add('hidden'));
+
+    // Zahl hochzählen
+    const numEl = $('resNumber');
+    numEl.classList.remove('landed');
+    if (animate) {
+      const duration = 1800;
+      const t0 = performance.now();
+      await new Promise((resolve) => {
+        const tick = (t) => {
+          const k = Math.min(1, (t - t0) / duration);
+          const eased = 1 - Math.pow(1 - k, 3);
+          numEl.textContent = fmt(Math.round(res.count * eased + (k < 1 ? Math.random() * Math.max(3, res.count * 0.15) * (1 - k) : 0)));
+          k < 1 ? requestAnimationFrame(tick) : resolve();
+        };
+        requestAnimationFrame(tick);
+      });
+    }
+    numEl.textContent = fmt(res.count);
+    void numEl.offsetWidth;
+    numEl.classList.add('landed');
+    if (animate) await sleep(500);
+
+    // Ranking aufdecken – vom schlechtesten zum besten für Spannung
+    const medal = (place, loser) => loser ? '🥴' : place === 1 ? '🥇' : place === 2 ? '🥈' : place === 3 ? '🥉' : `${place}.`;
+    const rowsHTML = res.rows.map((r) => {
+      const p = player(r.id);
+      return `<div class="result-row ${r.place === 1 && !r.loser ? 'winner' : ''} ${r.loser ? 'loser' : ''}">
+        <div class="place">${medal(r.place, r.loser)}</div>
+        ${avatarHTML(p, 'sm')}
+        <div class="rr-main">
+          <div class="rr-name">${esc(p.name)}${r.id === c.masterId ? ' 👑' : ''}</div>
+          <div class="rr-sub">Tipp: <b>${fmt(r.guess)}</b> · ${r.diff === 0 ? '🎯 Volltreffer!' : `${fmt(r.diff)} daneben`}</div>
+        </div>
+        <div class="rr-pts">${r.loser ? `🍺 ${r.sips}` : `+${r.points}`}</div>
+      </div>`;
+    });
+    $('resRows').innerHTML = rowsHTML.join('');
+    const els = Array.from($('resRows').children);
+    for (let i = els.length - 1; i >= 0; i--) {
+      if (animate) await sleep(380);
+      els[i].classList.add('show');
+    }
+
+    // Trink-Banner
+    const losers = res.rows.filter((r) => r.loser);
+    if (animate) await sleep(450);
+    if (losers.length) {
+      const names = joinNames(losers.map((r) => pname(r.id)));
+      $('resBanners').innerHTML = `<div class="drink-banner"><span class="emoji">🍺</span><div>${esc(names)} ${losers.length > 1 ? 'liegen' : 'liegt'} am weitesten daneben und ${losers.length > 1 ? 'müssen' : 'muss'} <b>sofort ${ROUND_DRINK} Schlücke</b> trinken!</div></div>`;
+    } else {
+      $('resBanners').innerHTML = `<div class="drink-banner good"><span class="emoji">🤝</span><div>Alle gleich nah dran – Unentschieden! Jeder bekommt 3 Punkte, niemand muss trinken.</div></div>`;
+    }
+    requestAnimationFrame(() => $('resBanners').firstElementChild.classList.add('show'));
+    if (animate && losers.length) burstEmoji('🍺', 14);
+
+    // Beweise
+    if (res.snippets.length) {
+      $('snippets').innerHTML = res.snippets.map((s) => `<div class="snippet">${s.author ? `<span class="who">${esc(s.author)}:</span> ` : ''}${highlight(s.text, c.word)}</div>`).join('');
+      $('snippetCard').classList.remove('hidden');
+    }
+
+    // Zwischenstand
+    renderScoreTable();
+    $('scoreCard').classList.remove('hidden');
+
+    const last = g.round >= g.totalRounds;
+    $('btnNextRound').textContent = last ? '🏆 Zum Finale!' : `➡️ Weiter zu Runde ${g.round + 1}`;
+    $('btnNextRound').classList.remove('hidden');
+  }
+
+  function rankedPlayers() {
+    const g = state.game;
+    const list = state.players.map((p) => ({ ...p, points: g.scores[p.id] || 0, sips: g.sips[p.id] || 0, wins: g.wins[p.id] || 0 }));
+    list.sort((a, b) => b.points - a.points || b.wins - a.wins || a.sips - b.sips || a.name.localeCompare(b.name));
+    list.forEach((p) => { p.place = 1 + list.filter((o) => o.points > p.points).length; });
+    return list;
+  }
+
+  function renderScoreTable() {
+    $('scoreTable').innerHTML = rankedPlayers().map((p) => `<tr>
+      <td>${p.place}.</td>
+      <td>${avatarHTML(p, 'sm')} &nbsp;${esc(p.name)}</td>
+      <td class="muted small">🍺 ${p.sips}</td>
+      <td>${p.points} P</td>
+    </tr>`).join('');
+  }
+
+  /* =========================================================
+     FINALE
+     ========================================================= */
+  async function openFinal() {
+    const g = state.game;
+    g.phase = 'final';
+    save();
+    show('screen-final');
+    $('finalRounds').textContent = g.totalRounds;
+    const ranked = rankedPlayers();
+    const n = ranked.length;
+    const topPts = ranked[0].points;
+    const bottomPts = ranked[n - 1].points;
+    const winners = ranked.filter((p) => p.points === topPts);
+    const losers = topPts === bottomPts ? [] : ranked.filter((p) => p.points === bottomPts);
+    const loserSips = n === 2 ? 3 : 5;
+
+    // Podium (Plätze 2 – 1 – 3)
+    const podiumOrder = [ranked[1], ranked[0], ranked[2]];
+    const cls = ['p2', 'p1', 'p3'];
+    const medals = ['🥈', '🥇', '🥉'];
+    $('podium').innerHTML = podiumOrder.map((p, i) => p ? `
+      <div class="podium-col ${cls[i]}">
+        <div class="pinfo center">
+          ${i === 1 ? '<div class="crown" style="font-size:34px">👑</div>' : ''}
+          ${avatarHTML(p, i === 1 ? 'lg' : '')}
+          <div class="pname">${esc(p.name)}</div>
+          <div class="ppts">${p.points} Punkte</div>
+        </div>
+        <div class="podium-block">${medals[i]}</div>
+      </div>` : '').join('');
+
+    // Komplette Rangliste
+    $('finalList').innerHTML = ranked.map((p) => {
+      const isW = winners.includes(p);
+      const isL = losers.includes(p);
+      return `<div class="result-row ${isW ? 'winner' : ''} ${isL ? 'loser' : ''}">
+        <div class="place">${p.place === 1 ? '🥇' : p.place === 2 ? '🥈' : p.place === 3 ? '🥉' : p.place + '.'}</div>
+        ${avatarHTML(p, 'sm')}
+        <div class="rr-main">
+          <div class="rr-name">${esc(p.name)}</div>
+          <div class="rr-sub">${p.wins}× Rundensieg · 🍺 ${p.sips} Schlücke getrunken</div>
+        </div>
+        <div class="rr-pts">${p.points} P</div>
+      </div>`;
+    }).join('');
+
+    $('finalBanners').innerHTML = '';
+    $('distributeCard').classList.add('hidden');
+    $('statsCard').classList.add('hidden');
+
+    await sleep(2400);
+    confetti(140);
+    const rows = Array.from($('finalList').children);
+    for (let i = rows.length - 1; i >= 0; i--) {
+      rows[i].classList.add('show');
+      await sleep(220);
+    }
+
+    // Banner
+    const banners = [];
+    const winnerNames = joinNames(winners.map((p) => p.name));
+    banners.push(`<div class="drink-banner good"><span class="emoji">🏆</span><div>${esc(winnerNames)} ${winners.length > 1 ? 'gewinnen gemeinsam' : 'gewinnt'} mit ${topPts} Punkten und ${winners.length > 1 ? 'dürfen jeweils' : 'darf'} <b>${WINNER_SIPS} Schlücke verteilen</b>!</div></div>`);
+    if (losers.length) {
+      const loserNames = joinNames(losers.map((p) => p.name));
+      banners.push(`<div class="drink-banner"><span class="emoji">🍻</span><div>${esc(loserNames)} ${losers.length > 1 ? 'landen' : 'landet'} auf dem letzten Platz und ${losers.length > 1 ? 'müssen' : 'muss'} <b>${loserSips} Schlücke</b> trinken!</div></div>`);
+    } else {
+      banners.push(`<div class="drink-banner"><span class="emoji">🤯</span><div>Totaler Gleichstand! Keiner ist Letzter – aber das schreit nach einer Revanche.</div></div>`);
+    }
+    $('finalBanners').innerHTML = banners.join('');
+    const bEls = Array.from($('finalBanners').children);
+    for (const b of bEls) { b.classList.add('show'); await sleep(350); }
+
+    // Schlücke verteilen (bei mehreren Siegern nacheinander)
+    if (winners.length < n) setupDistribution(winners.map((w) => w.id), 0);
+
+    // Statistik
+    renderStats();
+    $('statsCard').classList.remove('hidden');
+  }
+
+  function setupDistribution(winnerIds, idx) {
+    if (idx >= winnerIds.length) return;
+    const winnerId = winnerIds[idx];
+    const targets = state.players.filter((p) => p.id !== winnerId);
+    const alloc = Object.fromEntries(targets.map((p) => [p.id, 0]));
+    const card = $('distributeCard');
+    card.classList.remove('hidden');
+    $('distributeTitle').textContent = `${pname(winnerId)} verteilt ${WINNER_SIPS} Schlücke`;
+    $('sipSummary').classList.add('hidden');
+    $('btnConfirmSips').classList.remove('hidden');
+
+    const render = () => {
+      const used = Object.values(alloc).reduce((a, b) => a + b, 0);
+      const left = WINNER_SIPS - used;
+      $('sipLeft').textContent = left;
+      $('sipRows').innerHTML = targets.map((p) => `
+        <div class="sip-row">
+          ${avatarHTML(p, 'sm')}
+          <div class="sname">${esc(p.name)}</div>
+          <button class="icon-btn" data-sip="${p.id}" data-d="-1" ${alloc[p.id] === 0 ? 'disabled' : ''}>−</button>
+          <div class="scount">${alloc[p.id]}</div>
+          <button class="icon-btn" data-sip="${p.id}" data-d="1" ${left === 0 ? 'disabled' : ''}>＋</button>
+        </div>`).join('');
+      $('sipRows').querySelectorAll('[data-sip]').forEach((b) => b.onclick = () => {
+        alloc[b.dataset.sip] = Math.max(0, alloc[b.dataset.sip] + Number(b.dataset.d));
+        render();
+      });
+      $('btnConfirmSips').disabled = left !== 0;
+    };
+    render();
+
+    $('btnConfirmSips').onclick = () => {
+      const parts = targets.filter((p) => alloc[p.id] > 0).map((p) => `<b>${esc(p.name)}</b>: ${alloc[p.id]} ${alloc[p.id] === 1 ? 'Schluck' : 'Schlücke'}`);
+      targets.forEach((p) => { state.game.sips[p.id] = (state.game.sips[p.id] || 0) + alloc[p.id]; });
+      save();
+      $('sipRows').innerHTML = '';
+      $('btnConfirmSips').classList.add('hidden');
+      $('sipSummary').innerHTML = `<div class="drink-banner show"><span class="emoji">🍻</span><div>${parts.join('<br>')}<br><span class="small muted">Prost!</span></div></div>`;
+      $('sipSummary').classList.remove('hidden');
+      burstEmoji('🍻', 12);
+      renderStats();
+      if (idx + 1 < winnerIds.length) {
+        setTimeout(() => setupDistribution(winnerIds, idx + 1), 1800);
+      }
+    };
+  }
+
+  function renderStats() {
+    const g = state.game;
+    const hist = g.history;
+    const bullseyes = {};
+    hist.forEach((h) => h.rows.forEach((r) => { if (r.diff === 0) bullseyes[r.id] = (bullseyes[r.id] || 0) + 1; }));
+    const most = hist.slice().sort((a, b) => b.count - a.count)[0];
+    const least = hist.slice().sort((a, b) => a.count - b.count)[0];
+    const thirsty = state.players.slice().sort((a, b) => (g.sips[b.id] || 0) - (g.sips[a.id] || 0))[0];
+    const sharp = state.players.slice().sort((a, b) => (bullseyes[b.id] || 0) - (bullseyes[a.id] || 0))[0];
+    const rows = [];
+    if (most) rows.push(['🔥 Häufigstes Wort', `„${esc(most.word)}“ (${fmt(most.count)}×)`]);
+    if (least && least !== most) rows.push(['🧊 Seltenstes Wort', `„${esc(least.word)}“ (${fmt(least.count)}×)`]);
+    if (thirsty) rows.push(['🍺 Durstigste Person', `${esc(thirsty.name)} (${g.sips[thirsty.id] || 0} Schlücke)`]);
+    if (sharp && bullseyes[sharp.id]) rows.push(['🎯 Meiste Volltreffer', `${esc(sharp.name)} (${bullseyes[sharp.id]}×)`]);
+    rows.push(['📜 Alle Wörter', hist.map((h) => `„${esc(h.word)}“`).join(', ')]);
+    $('statsTable').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td style="text-align:right;font-weight:700">${v}</td></tr>`).join('');
+  }
+
+  /* =========================================================
+     Effekte
+     ========================================================= */
+  function confetti(count) {
+    const colors = ['#ff3ea5', '#8b5cf6', '#22d3ee', '#a3e635', '#fbbf24'];
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.background = colors[i % colors.length];
+      el.style.animationDuration = 2.5 + Math.random() * 2.5 + 's';
+      el.style.animationDelay = Math.random() * 1.2 + 's';
+      el.style.transform = `rotate(${Math.random() * 360}deg)`;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 6500);
+    }
+  }
+
+  function burstEmoji(emoji, count) {
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.textContent = emoji;
+      el.style.background = 'none';
+      el.style.width = 'auto';
+      el.style.height = 'auto';
+      el.style.fontSize = 22 + Math.random() * 18 + 'px';
+      el.style.left = Math.random() * 100 + 'vw';
+      el.style.animationDuration = 2 + Math.random() * 2 + 's';
+      el.style.animationDelay = Math.random() * 0.6 + 's';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 5000);
+    }
+  }
+
+  /* =========================================================
+     Event-Verdrahtung
+     ========================================================= */
+  $('btnAddPlayer').onclick = addPlayer;
+  $('playerNameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addPlayer(); });
+  $('roundsSelect').onchange = () => { state.settings.rounds = parseInt($('roundsSelect').value, 10) || 10; save(); };
+  $('btnLobbyBack').onclick = () => { initStart(); show('screen-start'); };
+  $('btnStartGame').onclick = startGame;
+
+  $('btnToWord').onclick = openWord;
+  $('btnWordReady').onclick = () => {
+    $('wordHandoff').classList.add('hidden');
+    $('wordForm').classList.remove('hidden');
+    setTimeout(() => $('secretWord').focus(), 150);
+  };
+  $('btnToggleWord').onclick = () => {
+    const inp = $('secretWord');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    $('btnToggleWord').textContent = inp.type === 'password' ? '👁️' : '🙈';
+  };
+  $('secretWord').addEventListener('keydown', (e) => { if (e.key === 'Enter') lockWord(); });
+  $('btnLockWord').onclick = lockWord;
+
+  $('btnGuessReady').onclick = showGuessForm;
+  $('btnSubmitGuess').onclick = submitGuess;
+  $('guessInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitGuess(); });
+  const bump = (d) => {
+    const v = parseInt($('guessInput').value, 10);
+    $('guessInput').value = Math.max(0, (Number.isFinite(v) ? v : 0) + d);
+  };
+  $('btnGuessMinus').onclick = () => bump(-1);
+  $('btnGuessPlus').onclick = () => bump(1);
+
+  $('btnNextRound').onclick = () => {
+    const g = state.game;
+    if (g.round >= g.totalRounds) openFinal();
+    else nextRound();
+  };
+
+  $('btnRematch').onclick = startGame;
+  $('btnBackToLobby').onclick = openLobby;
+
+  initStart();
+})();
+</script>
+</body>
+</html>
