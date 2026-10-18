@@ -400,6 +400,11 @@
   .sip-row:last-child { border-bottom: none; }
   .sip-row .sname { flex: 1; font-weight: 650; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sip-row .scount { width: 36px; text-align: center; font-family: var(--mono); font-size: 22px; font-weight: 800; color: var(--hl); }
+  .sip-row { gap: 8px; }
+  .sip-row .icon-btn { width: 36px; height: 36px; }
+  .sip-row .scount { width: 26px; font-size: 20px; }
+  .sip-row .all-btn { min-height: 36px; padding: 0 10px; font-size: 14px; border-radius: 10px; }
+  .sip-row .all-btn.on { background: var(--hl); color: var(--hl-ink); border-color: var(--hl); }
   .sip-left { font-family: var(--mono); font-weight: 800; color: var(--text); }
 
   .confetti-piece { position: fixed; top: -20px; width: 7px; height: 18px; z-index: 50; pointer-events: none; border-radius: 1px; animation: fall linear forwards; }
@@ -1814,9 +1819,15 @@
           <button class="icon-btn" data-sip="${p.id}" data-d="-1" ${alloc[p.id] === 0 ? 'disabled' : ''}>−</button>
           <div class="scount">${alloc[p.id]}</div>
           <button class="icon-btn" data-sip="${p.id}" data-d="1" ${left === 0 ? 'disabled' : ''}>+</button>
+          <button class="btn small secondary all-btn ${alloc[p.id] === WINNER_SIPS ? 'on' : ''}" data-all="${p.id}" title="Alle ${WINNER_SIPS} Schlücke an ${esc(p.name)}">Alle</button>
         </div>`).join('');
       $('sipRows').querySelectorAll('[data-sip]').forEach((b) => b.onclick = () => {
         alloc[b.dataset.sip] = Math.max(0, alloc[b.dataset.sip] + Number(b.dataset.d));
+        render();
+      });
+      // Alle Schlücke auf einmal an eine Person
+      $('sipRows').querySelectorAll('[data-all]').forEach((b) => b.onclick = () => {
+        targets.forEach((t) => { alloc[t.id] = t.id === b.dataset.all ? WINNER_SIPS : 0; });
         render();
       });
       $('btnConfirmSips').disabled = left !== 0;
