@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Chat-Roulette – Sicherheitsregeln
+// KlarText – Sicherheitsregeln
 // - Nur angemeldete (anonyme) Nutzer, die Mitglied eines Raums sind, können ihn lesen.
 // - Räume können nicht aufgelistet werden; man braucht den Code.
 // - Fremde können sich nur selbst eintragen, solange der Raum in der Lobby ist.

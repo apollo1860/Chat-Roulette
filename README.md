@@ -1,6 +1,6 @@
-# 🍻 Chat-Roulette
+# KlarText
 
-Das WhatsApp-Trinkspiel: Ein Wort, ein Chat – wer schätzt am besten, wie oft es vorkommt?
+Das Trinkspiel für eure WhatsApp-Chats: Ein Wort, ein Chat – wer schätzt am besten, wie oft es vorkommt?
 
 Alles steckt in einer einzigen Datei: `index.html`.
 
@@ -60,7 +60,7 @@ Voraussetzung: [Node.js](https://nodejs.org) und ein Google-Konto. Firebase ist 
 ### Lokal testen
 
 ```bash
-firebase emulators:start --project demo-chatroulette
+firebase emulators:start --project demo-klartext
 ```
 
 Dann <http://127.0.0.1:5000/?emulator> in mehreren Browserfenstern (z. B. normal + privat) öffnen.
