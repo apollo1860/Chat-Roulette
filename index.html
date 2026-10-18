@@ -467,7 +467,10 @@
 <div class="app">
   <div class="topbar">
     <div class="logo">🍻 Chat-Roulette</div>
-    <div class="round-pill hidden" id="roundPill">Runde <b id="roundPillNum">1</b> / <span id="roundPillTotal">10</span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="round-pill hidden" id="roundPill">Runde <b id="roundPillNum">1</b> / <span id="roundPillTotal">10</span></div>
+      <button class="icon-btn hidden" id="btnEndGame" title="Spiel vorzeitig beenden" aria-label="Spiel vorzeitig beenden">🏁</button>
+    </div>
   </div>
   <div class="stepper hidden" id="stepper"></div>
 
@@ -482,7 +485,7 @@
         <li data-i="📱">Spielt an <b>einem Gerät</b>, das ihr weiterreicht – oder <b>online</b>, jeder am eigenen Handy.</li>
         <li data-i="📂">Ladet eure exportierten WhatsApp-Chats (.txt) hoch – ein einziger Chat reicht schon.</li>
         <li data-i="🎰">10 Runden: Jede Runde wird ein <b>Wort-Meister</b> ausgelost – und bei mehreren Chats auch der Chat.</li>
-        <li data-i="✍️">Der Wort-Meister wählt ein Wort – alle schätzen, wie oft es im Chat vorkommt.</li>
+        <li data-i="✍️">Der Wort-Meister wählt ein Wort oder Emoji – alle schätzen, wie oft es im Chat vorkommt.</li>
         <li data-i="🎯">Jede Zahl darf nur einmal getippt werden (auch 0). Genau richtig geschätzt? <b>5 Punkte</b> statt 3.</li>
         <li data-i="😬">Kommt das Wort des Wort-Meisters gar nicht vor, gibt es für ihn <b>1 Punkt Abzug</b>.</li>
         <li data-i="🥴">Wer am weitesten daneben liegt, trinkt <b>3 Schlücke</b> – bei Gleichstand trinken alle Betroffenen.</li>
@@ -623,9 +626,9 @@
     <p class="lead"><b id="wordMasterName"></b>, wähle ein Wort, das im Chat <b id="wordChatName"></b> vorkommen könnte.</p>
     <div class="card">
       <label class="lbl" for="wordInput">Wort</label>
-      <input class="input big" id="wordInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="z. B. Bier">
+      <input class="input big" id="wordInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="z. B. Bier oder 😂">
       <div class="field-error" id="wordError"></div>
-      <p class="small muted">Gezählt wird nur das <b>exakte ganze Wort</b> – Groß-/Kleinschreibung egal. Bei „Bier“ zählt „bier“ und „BIER“, aber nicht „Bierchen“.<br>⚠️ Kommt dein Wort gar nicht vor, bekommst du <b>1 Punkt Abzug</b>.</p>
+      <p class="small muted">Gezählt wird nur das <b>exakte ganze Wort</b> – Groß-/Kleinschreibung egal. Bei „Bier“ zählt „bier“ und „BIER“, aber nicht „Bierchen“. Emojis wie 😂 oder ❤️ gehen auch.<br>⚠️ Kommt dein Wort gar nicht vor, bekommst du <b>1 Punkt Abzug</b>.</p>
     </div>
     <button class="btn block" id="btnLockWord">✅ Wort festlegen</button>
   </section>
@@ -693,7 +696,7 @@
   <!-- ===================== FINALE ===================== -->
   <section class="screen" id="screen-final">
     <h1 class="center"><span class="gradient-text">🏆 Finale!</span></h1>
-    <p class="center lead">Nach <span id="finalRounds">10</span> Runden steht fest, wer der Chat-Kenner ist.</p>
+    <p class="center lead"><span id="finalIntro">Nach 10 Runden</span> steht fest, wer der Chat-Kenner ist.</p>
 
     <div class="podium" id="podium"></div>
 
@@ -808,17 +811,70 @@
   }
 
   // Nur sessionStorage: übersteht ein Neuladen, wird aber beim Schließen des Tabs vom Browser gelöscht
+  /* Chats werden getrennt vom Spielstand und gzip-komprimiert gespeichert (etwa ein Viertel der Größe),
+     damit auch jahrelange Chats in den Tab-Speicher (~5 MB) passen. */
+  const CHATS_KEY = 'chatRouletteChats_v1';
+  const ONLINE_CHATS_KEY = 'chatRouletteOnlineChats_v1';
+  let savedChatSig = '';
+  let chatStoreQueue = Promise.resolve();
+
+  async function packJSON(obj) {
+    const json = JSON.stringify(obj);
+    if (typeof CompressionStream === 'undefined') return 'raw:' + json;
+    const buf = await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return 'gz:' + btoa(bin);
+  }
+
+  async function unpackJSON(str) {
+    if (!str) return null;
+    if (str.startsWith('raw:')) return JSON.parse(str.slice(4));
+    const bin = atob(str.slice(3));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+  }
+
+  function storeChats(key, getMap) {
+    // Nacheinander ausführen, damit ein älterer Stand nie einen neueren überschreibt
+    chatStoreQueue = chatStoreQueue.then(async () => {
+      try {
+        sessionStorage.setItem(key, await packJSON(getMap()));
+      } catch (e) {
+        try { sessionStorage.removeItem(key); } catch (e2) { /* ignorieren */ }
+        toast('⚠️ Die Chats sind zu groß zum Zwischenspeichern. Ihr könnt spielen – nur die Seite bitte nicht neu laden.');
+      }
+    });
+    return chatStoreQueue;
+  }
+
+  async function readChats(key) {
+    try { return (await unpackJSON(sessionStorage.getItem(key))) || {}; } catch (e) { return {}; }
+  }
+
   function save() {
     if (online) return; // online liegt der Spielstand im Raum, nicht lokal
-    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    const lite = { ...state, chats: state.chats.map(({ messages, ...c }) => ({ ...c, messageCount: messages ? messages.length : c.messageCount })) };
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(lite)); }
     catch (e) { /* Speicher voll oder blockiert – Spiel läuft trotzdem im Arbeitsspeicher weiter */ }
+    // Chat-Inhalte nur neu speichern, wenn sich die Chats geändert haben
+    const sig = state.chats.map((c) => c.id).join(',');
+    if (sig !== savedChatSig) {
+      savedChatSig = sig;
+      storeChats(CHATS_KEY, () => Object.fromEntries(state.chats.map((c) => [c.id, c.messages])));
+    }
   }
 
   function wipeAll() {
     state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
     try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignorieren */ }
     try { sessionStorage.removeItem(ONLINE_KEY); } catch (e) { /* ignorieren */ }
+    try { sessionStorage.removeItem(CHATS_KEY); } catch (e) { /* ignorieren */ }
+    try { sessionStorage.removeItem(ONLINE_CHATS_KEY); } catch (e) { /* ignorieren */ }
     try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignorieren */ }
+    savedChatSig = '';
   }
 
   function load() {
@@ -887,8 +943,14 @@
      So zählt „schön“ korrekt, „Bier“ aber nicht in „Bierchen“.
      ========================================================= */
   function buildWordRegex(word) {
-    const w = escapeRegex(word.trim());
-    return new RegExp(`(?<![\\p{L}\\p{N}\\p{M}_])${w}(?![\\p{L}\\p{N}\\p{M}_])`, 'giu');
+    // Emojis gibt es mit und ohne unsichtbares Variations-Zeichen (U+FE0F, z. B. ❤ / ❤️) – beides zählen
+    const chars = Array.from(word.trim().replace(/\uFE0F/g, ''));
+    const body = chars.map((ch) => escapeRegex(ch) + (/\p{Extended_Pictographic}/u.test(ch) ? '\\uFE0F?' : '')).join('');
+    // Wortgrenze nur dort, wo das Wort mit Buchstabe/Ziffer beginnt bzw. endet – „haha😂“ zählt also für 😂
+    const isWordChar = (ch) => /[\p{L}\p{N}\p{M}_]/u.test(ch);
+    const lead = isWordChar(chars[0]) ? '(?<![\\p{L}\\p{N}\\p{M}_])' : '';
+    const trail = isWordChar(chars[chars.length - 1]) ? '(?![\\p{L}\\p{N}\\p{M}_])' : '';
+    return new RegExp(lead + body + trail, 'giu');
   }
 
   function countWord(chat, word) {
@@ -914,6 +976,7 @@
     $(screenId).classList.add('active');
     const inGame = !!state.game && step >= 0;
     $('roundPill').classList.toggle('hidden', !inGame);
+    $('btnEndGame').classList.toggle('hidden', !inGame || (!!online && !isHost()));
     $('stepper').classList.toggle('hidden', !inGame);
     if (inGame) {
       $('roundPillNum').textContent = state.game.round;
@@ -941,11 +1004,22 @@
       save();
       openLobby();
     };
-    $('btnResume').onclick = () => {
+    $('btnResume').onclick = async () => {
       const s = load();
       if (!s) return openLobby();
       state = s;
       if (!state.settings) state.settings = { rounds: 10 };
+      const stored = await readChats(CHATS_KEY);
+      state.chats.forEach((c) => { c.messages = stored[c.id] || null; });
+      const missing = state.chats.filter((c) => !c.messages);
+      if (missing.length) {
+        // Konnte nicht gespeichert werden (zu groß) – diese Chats müssen neu hochgeladen werden
+        state.chats = state.chats.filter((c) => c.messages);
+        savedChatSig = state.chats.map((c) => c.id).join(',');
+        toast(`⚠️ ${missing.length === 1 ? 'Ein Chat fehlt' : missing.length + ' Chats fehlen'} – bitte erneut hochladen.`);
+        return openLobby();
+      }
+      savedChatSig = state.chats.map((c) => c.id).join(',');
       resumeGame();
     };
   }
@@ -1298,7 +1372,7 @@
     const word = $('wordInput').value.trim().replace(/\s+/g, ' ');
     const err = $('wordError');
     if (!word) { err.textContent = 'Bitte gib ein Wort ein.'; return; }
-    if (!/[\p{L}\p{N}]/u.test(word)) { err.textContent = 'Das Wort muss mindestens einen Buchstaben oder eine Ziffer enthalten.'; return; }
+    if (!/[\p{L}\p{N}\p{Extended_Pictographic}]/u.test(word)) { err.textContent = 'Das Wort muss mindestens einen Buchstaben, eine Ziffer oder ein Emoji enthalten.'; return; }
     if (online) { onlineLockWord(word); return; }
     const g = state.game;
     g.current.word = word;
@@ -1588,7 +1662,8 @@
     save();
     show('screen-final');
     const token = renderToken;
-    $('finalRounds').textContent = g.totalRounds;
+    const played = g.history.length;
+    $('finalIntro').textContent = `${g.endedEarly ? 'Vorzeitig beendet – nach' : 'Nach'} ${played} ${played === 1 ? 'Runde' : 'Runden'}`;
     $('distLog').innerHTML = '';
     $('btnRematch').classList.toggle('hidden', !!online && !isHost());
     $('btnBackToLobby').classList.toggle('hidden', !!online && !isHost());
@@ -1776,13 +1851,10 @@
     try { return JSON.parse(sessionStorage.getItem(ONLINE_KEY)) || null; } catch (e) { return null; }
   }
 
-  function saveOnlineLocal() {
+  function saveOnlineLocal(withChats = true) {
     if (!online) return;
-    try {
-      sessionStorage.setItem(ONLINE_KEY, JSON.stringify({ roomId: online.roomId, name: online.name, chats: onlineChats }));
-    } catch (e) {
-      toast('⚠️ Chat ist zu groß zum Zwischenspeichern – bitte die Seite nicht neu laden.');
-    }
+    try { sessionStorage.setItem(ONLINE_KEY, JSON.stringify({ roomId: online.roomId, name: online.name })); } catch (e) { /* ignorieren */ }
+    if (withChats) storeChats(ONLINE_CHATS_KEY, () => onlineChats);
   }
 
   async function getFirebaseConfig() {
@@ -1863,7 +1935,7 @@
           chats: {},
           game: null,
         });
-        enterRoom(code, name);
+        await enterRoom(code, name);
       } catch (e) {
         console.warn(e);
         $('onlineError').textContent = onlineErrorText(e);
@@ -1882,7 +1954,7 @@
         await connectFirebase();
         // Nur wer im Raum ist, darf ihn lesen – daher erst eintragen, dann lesen
         await fb.updateDoc(fb.doc(fb.db, 'rooms', code), { [`players.${fb.uid}`]: { name, color: rand(COLORS), joinedAt: Date.now() } });
-        enterRoom(code, name);
+        await enterRoom(code, name);
       } catch (e) {
         console.warn(e);
         $('onlineError').textContent = e && (e.code === 'permission-denied' || e.code === 'not-found')
@@ -1892,12 +1964,13 @@
     });
   }
 
-  function enterRoom(code, name) {
+  async function enterRoom(code, name) {
     const local = loadOnlineLocal();
-    onlineChats = local && local.roomId === code ? local.chats || {} : {};
+    const sameRoom = !!local && local.roomId === code;
+    onlineChats = sameRoom ? await readChats(ONLINE_CHATS_KEY) : {};
     online = { roomId: code, uid: fb.uid, name, room: null, lastKey: '', counting: false, firstSnapshot: true, unsub: null };
     state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
-    saveOnlineLocal();
+    saveOnlineLocal(!sameRoom);
     // Metadaten-Änderungen mitnehmen: so merken wir, wann eigene Schreibvorgänge vom Server bestätigt sind
     online.unsub = fb.onSnapshot(roomRef(), { includeMetadataChanges: true }, onRoomSnapshot, (err) => {
       // Nach dem Auflösen oder Entfernen darf man den Raum nicht mehr lesen
@@ -1910,7 +1983,7 @@
     if (!local || !local.roomId) return;
     try {
       await connectFirebase();
-      enterRoom(local.roomId, local.name);
+      await enterRoom(local.roomId, local.name);
     } catch (e) {
       openOnline(local.roomId);
       $('onlineError').textContent = onlineErrorText(e);
@@ -1923,6 +1996,7 @@
     onlineChats = {};
     state = { players: [], chats: [], settings: { rounds: 10 }, game: null };
     try { sessionStorage.removeItem(ONLINE_KEY); } catch (e) { /* ignorieren */ }
+    try { sessionStorage.removeItem(ONLINE_CHATS_KEY); } catch (e) { /* ignorieren */ }
     initStart();
     show('screen-start');
     if (message) toast(message);
@@ -2426,6 +2500,31 @@
   }
 
   /* =========================================================
+     Vorzeitig beenden
+     ========================================================= */
+  async function endGameEarly() {
+    const g = state.game;
+    if (!g) return;
+    const done = g.history.length;
+    const running = g.phase !== 'result' && done < g.round;
+    const msg = done
+      ? `Spiel jetzt beenden und nach ${done} ${done === 1 ? 'Runde' : 'Runden'} zum Finale?${running ? ' Die laufende Runde zählt nicht.' : ''}`
+      : 'Es wurde noch keine Runde fertig gespielt. Spiel abbrechen und zurück in die Lobby?';
+    if (!confirm(msg)) return;
+    if (online) {
+      try {
+        if (!done) await fb.updateDoc(roomRef(), { status: 'lobby', game: null });
+        else await fb.updateDoc(roomRef(), { 'game.totalRounds': done, 'game.endedEarly': true, 'game.phase': 'final', status: 'final', expiresAt: expiry() });
+      } catch (e) { console.warn(e); toast('Verbindung prüfen und nochmal versuchen.'); }
+      return;
+    }
+    if (!done) return openLobby();
+    g.totalRounds = done;
+    g.endedEarly = true;
+    openFinal();
+  }
+
+  /* =========================================================
      Event-Verdrahtung
      ========================================================= */
   $('btnAddPlayer').onclick = addPlayer;
@@ -2455,6 +2554,7 @@
     else nextRound();
   };
 
+  $('btnEndGame').onclick = endGameEarly;
   $('btnRematch').onclick = () => (online ? onlineStartGame() : startGame());
   const wipeAndRestart = async () => {
     if (online) {
