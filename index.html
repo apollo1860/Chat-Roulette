@@ -483,7 +483,8 @@
         <li data-i="📂">Ladet eure exportierten WhatsApp-Chats (.txt) hoch – ein einziger Chat reicht schon.</li>
         <li data-i="🎰">10 Runden: Jede Runde wird ein <b>Wort-Meister</b> ausgelost – und bei mehreren Chats auch der Chat.</li>
         <li data-i="✍️">Der Wort-Meister wählt ein Wort – alle schätzen, wie oft es im Chat vorkommt.</li>
-        <li data-i="🎯">Jede Zahl darf nur einmal getippt werden. Genau richtig geschätzt? <b>5 Punkte</b> statt 3.</li>
+        <li data-i="🎯">Jede Zahl darf nur einmal getippt werden (auch 0). Genau richtig geschätzt? <b>5 Punkte</b> statt 3.</li>
+        <li data-i="😬">Kommt das Wort des Wort-Meisters gar nicht vor, gibt es für ihn <b>1 Punkt Abzug</b>.</li>
         <li data-i="🥴">Wer am weitesten daneben liegt, trinkt <b>3 Schlücke</b> – bei Gleichstand trinken alle Betroffenen.</li>
         <li data-i="🏆">Am Ende verteilt der Sieger 5 Schlücke, der Letzte muss selbst ran.</li>
       </ul>
@@ -624,7 +625,7 @@
       <label class="lbl" for="wordInput">Wort</label>
       <input class="input big" id="wordInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="40" placeholder="z. B. Bier">
       <div class="field-error" id="wordError"></div>
-      <p class="small muted">Gezählt wird nur das <b>exakte ganze Wort</b> – Groß-/Kleinschreibung egal. Bei „Bier“ zählt „bier“ und „BIER“, aber nicht „Bierchen“.</p>
+      <p class="small muted">Gezählt wird nur das <b>exakte ganze Wort</b> – Groß-/Kleinschreibung egal. Bei „Bier“ zählt „bier“ und „BIER“, aber nicht „Bierchen“.<br>⚠️ Kommt dein Wort gar nicht vor, bekommst du <b>1 Punkt Abzug</b>.</p>
     </div>
     <button class="btn block" id="btnLockWord">✅ Wort festlegen</button>
   </section>
@@ -648,10 +649,10 @@
 
     <div class="card hidden" id="guessForm">
       <h3 id="guessPrompt"></h3>
-      <p class="muted small" style="margin-bottom:12px">Wie oft kommt das Wort im Chat vor?</p>
+      <p class="muted small" style="margin-bottom:12px">Wie oft kommt das Wort im Chat vor? Auch 0 ist erlaubt.</p>
       <div class="stepper-num">
         <button class="icon-btn" id="btnGuessMinus" aria-label="weniger">−</button>
-        <input class="input big" id="guessInput" type="number" inputmode="numeric" min="0" max="9999999" step="1" placeholder="0">
+        <input class="input big" id="guessInput" type="number" inputmode="numeric" min="0" max="9999999" step="1" placeholder="?">
         <button class="icon-btn" id="btnGuessPlus" aria-label="mehr">＋</button>
       </div>
       <div class="field-error" id="guessError"></div>
@@ -735,6 +736,7 @@
   const STORAGE_KEY = 'chatRouletteState_v1';
   const ROUND_DRINK = 3;          // Schlücke für den Rundenverlierer
   const EXACT_POINTS = 5;         // Punkte für einen Volltreffer (statt 3)
+  const ZERO_WORD_PENALTY = 1;    // Punktabzug für den Wort-Meister, wenn sein Wort gar nicht vorkommt
   const WINNER_SIPS = 5;          // Schlücke, die der Gesamtsieger verteilt
   const COLORS = ['#ff3ea5', '#8b5cf6', '#22d3ee', '#a3e635', '#fbbf24', '#fb7185', '#38bdf8', '#f472b6', '#34d399', '#c084fc', '#f97316', '#60a5fa'];
   const STEPS = ['Runde', 'Wort', 'Schätzen', 'Ergebnis'];
@@ -1370,7 +1372,7 @@
     const raw = $('guessInput').value.trim();
     const n = Number(raw);
     if (raw === '' || !Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
-      $('guessError').textContent = 'Bitte eine ganze Zahl ab 0 eingeben.';
+      $('guessError').textContent = 'Bitte eine Zahl eingeben – 0 ist auch erlaubt.';
       return;
     }
     if (online) { onlineSubmitGuess(n); return; }
@@ -1421,17 +1423,19 @@
       // Verlierer gehen leer aus, außer alle liegen gleich weit weg: dann gibt es für alle die gleichen Punkte
       r.points = r.loser && !allTied ? 0 : r.diff === 0 ? EXACT_POINTS : pointsForPlace(r.place, n);
       r.sips = r.loser ? ROUND_DRINK : 0;
+      // Wort-Meister, dessen Wort gar nicht vorkommt, bekommt Punktabzug
+      r.penalty = count === 0 && r.id === c.masterId ? ZERO_WORD_PENALTY : 0;
     });
 
     rows.forEach((r) => {
-      g.scores[r.id] = (g.scores[r.id] || 0) + r.points;
+      g.scores[r.id] = (g.scores[r.id] || 0) + r.points - r.penalty;
       g.sips[r.id] = (g.sips[r.id] || 0) + r.sips;
       if (r.place === 1) g.wins[r.id] = (g.wins[r.id] || 0) + 1;
     });
 
     // Bis zu 3 Beweis-Nachrichten speichern
     const snippetSrc = shuffle(hits).slice(0, 3).map((m) => ({ author: m.author, text: m.text.length > 220 ? cutAround(m.text, c.word) : m.text }));
-    c.result = { count, rows, allTied, snippets: snippetSrc };
+    c.result = { count, rows, allTied, snippets: snippetSrc, masterPenalty: count === 0 ? ZERO_WORD_PENALTY : 0 };
     g.history.push({ round: g.round, chatId: c.chatId, masterId: c.masterId, word: c.word, count, rows });
   }
 
@@ -1511,7 +1515,7 @@
           <div class="rr-name">${esc(p.name)}${r.id === c.masterId ? ' 👑' : ''}</div>
           <div class="rr-sub">Tipp: <b>${fmt(r.guess)}</b> · ${r.diff === 0 ? `🎯 Volltreffer! ${EXACT_POINTS} Punkte` : `${fmt(r.diff)} daneben`}</div>
         </div>
-        <div class="rr-pts">${[r.points ? `+${r.points}` : '', r.loser ? `🍺 ${r.sips}` : ''].filter(Boolean).join(' · ')}</div>
+        <div class="rr-pts">${[r.points ? `+${r.points}` : '', r.penalty ? `<span style="color:var(--red)">−${r.penalty}</span>` : '', r.loser ? `🍺 ${r.sips}` : ''].filter(Boolean).join(' · ')}</div>
       </div>`;
     });
     $('resRows').innerHTML = rowsHTML.join('');
@@ -1532,7 +1536,10 @@
       const names = joinNames(losers.map((r) => pname(r.id)));
       $('resBanners').innerHTML = `<div class="drink-banner"><span class="emoji">🍺</span><div>${esc(names)} ${losers.length > 1 ? 'liegen' : 'liegt'} am weitesten daneben und ${losers.length > 1 ? 'müssen' : 'muss'} <b>sofort ${ROUND_DRINK} Schlücke</b> trinken!</div></div>`;
     }
-    requestAnimationFrame(() => $('resBanners').firstElementChild.classList.add('show'));
+    if (res.masterPenalty && player(c.masterId)) {
+      $('resBanners').insertAdjacentHTML('beforeend', `<div class="drink-banner"><span class="emoji">😬</span><div>„${esc(c.word)}“ kommt gar nicht vor – ${esc(pname(c.masterId))} bekommt als Wort-Meister <b>${res.masterPenalty} Punkt Abzug</b>.</div></div>`);
+    }
+    requestAnimationFrame(() => Array.from($('resBanners').children).forEach((b) => b.classList.add('show')));
     if (animate && losers.length) burstEmoji('🍺', 14);
 
     // Beweise
