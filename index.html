@@ -4,9 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c0c0e">
+<meta name="application-name" content="KlarText">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KlarText">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- Tab-Icon direkt eingebettet, damit es auch beim Öffnen der Datei ohne Server erscheint -->
+<link rel="icon" type="image/png" sizes="64x64" href="data:image/png;base64,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">
 <!-- Datenschutz: Verbindungen sind nur zu Firebase (Online-Modus) erlaubt. Der Ein-Gerät-Modus baut gar keine Verbindung auf,
      und Chat-Inhalte werden auch im Online-Modus nie übertragen – nur die Beweis-Nachrichten einer Runde. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://www.gstatic.com; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://www.gstatic.com; style-src 'unsafe-inline'; img-src data: 'self'; font-src data:; manifest-src 'self'; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex, nofollow">
 <title>KlarText – Das Trinkspiel für eure Chats</title>
@@ -937,7 +946,7 @@
         const rest = m[3];
         const colon = rest.indexOf(': ');
         if (colon > 0 && colon < 60) {
-          current = { author: rest.slice(0, colon).replace(BIDI_RE, '').trim(), text: rest.slice(colon + 2) };
+          current = { author: rest.slice(0, colon).replace(BIDI_RE, '').trim(), text: rest.slice(colon + 2), date: m[1] };
           messages.push(current);
         } else {
           current = null; // Systemmeldung ohne Absender (z. B. „Anna hat die Gruppe erstellt“)
@@ -953,9 +962,21 @@
       return fallback ? [{ author: '', text: fallback }] : [];
     }
 
-    return messages
-      .map((msg) => ({ author: msg.author, text: cleanMessage(msg.text) }))
+    const cleaned = messages
+      .map((msg) => ({ author: msg.author, text: cleanMessage(msg.text), date: msg.date }))
       .filter((msg) => msg.text);
+    // Zeitraum merken: zeigt sofort, ob der Export den ganzen Verlauf enthält
+    const range = cleaned.length ? { from: cleaned[0].date, to: cleaned[cleaned.length - 1].date } : null;
+    const result = cleaned.map(({ author, text }) => ({ author, text }));
+    result.range = range;
+    return result;
+  }
+
+  // „2.039 Nachrichten · 20.10.25 – 17.10.26“
+  function chatStats(c) {
+    const n = c.messageCount ?? (c.messages ? c.messages.length : 0);
+    const r = c.range;
+    return `${fmt(n)} Nachrichten${r && r.from ? ` · ${r.from === r.to ? r.from : `${r.from} – ${r.to}`}` : ''}`;
   }
 
   /* =========================================================
@@ -1143,7 +1164,7 @@
             <span class="ci-icon">TXT</span>
             <div class="ci-main">
               <div class="ci-title">Chat ${esc(chatLabel(c))}</div>
-              <div class="ci-sub">${esc(c.fileName)} · ${fmt(c.messages.length)} Nachrichten</div>
+              <div class="ci-sub">${esc(chatStats(c))}</div>
             </div>
             <button class="icon-btn" data-delchat="${c.id}" title="Chat entfernen" aria-label="Chat entfernen">×</button>
           </div>`).join('')}
@@ -1183,7 +1204,7 @@
             <span class="ci-icon">TXT</span>
             <div class="ci-main">
               <div class="ci-title">Chat zwischen ${esc(a.name)} und ${esc(b.name)}</div>
-              <div class="ci-sub">${esc(c.fileName)} · ${fmt(c.messages.length)} Nachrichten</div>
+              <div class="ci-sub">${esc(chatStats(c))}</div>
             </div>
             <button class="icon-btn" data-delchat="${c.id}" title="Chat entfernen" aria-label="Chat entfernen">×</button>
           </div>`).join('')}
@@ -1244,7 +1265,7 @@
         const messages = parseWhatsApp(text);
         if (!messages.length) { toast(`„${file.name}“ enthält keine Nachrichten.`); continue; }
         if (duo) state.chats = [];
-        state.chats.push({ id: uid(), ownerId, partnerIds: partners.slice(), fileName: file.name, messages });
+        state.chats.push({ id: uid(), ownerId, partnerIds: partners.slice(), fileName: file.name, messages, range: messages.range || null });
         added++;
       } catch (e) {
         toast(`„${file.name}“ konnte nicht gelesen werden.`);
@@ -1357,7 +1378,7 @@
     slotText.textContent = chatShortLabel(chat);
     $('roundSub').textContent = `Runde ${g.round} von ${g.totalRounds}`;
     $('chatAvatars').innerHTML = chatParticipants(chat).map((id) => avatarHTML(player(id), 'sm')).join('');
-    $('chatMeta').textContent = `${fmt(chat.messageCount ?? chat.messages.length)} Nachrichten`;
+    $('chatMeta').textContent = chatStats(chat);
 
     await sleep(700);
     if (token !== renderToken) return;
@@ -2121,6 +2142,7 @@
         partnerIds: c.partnerUids || [],
         fileName: c.fileName,
         messageCount: c.messageCount,
+        range: c.range || null,
         lost: !!c.lost,
         messages: onlineChats[id] || null,
       }));
@@ -2268,7 +2290,7 @@
         <span class="ci-icon ${c.lost ? 'lost' : ''}">${c.lost ? 'WEG' : 'TXT'}</span>
         <div class="ci-main">
           <div class="ci-title">Chat ${esc(chatLabel(c))}</div>
-          <div class="ci-sub">${c.lost ? 'Nicht mehr verfügbar (Tab wurde geschlossen) · ' : ''}von ${esc(pname(c.ownerId))} · ${fmt(c.messageCount)} Nachrichten</div>
+          <div class="ci-sub">${c.lost ? 'Nicht mehr verfügbar (Tab wurde geschlossen) · ' : ''}von ${esc(pname(c.ownerId))} · ${esc(chatStats(c))}</div>
         </div>
         ${c.ownerId === me || host ? `<button class="icon-btn" data-delchat="${c.id}" title="Chat entfernen" aria-label="Chat entfernen">×</button>` : ''}
       </div>`).join('') : '<p class="muted small">Noch kein Chat. Einer reicht – egal von wem.</p>';
@@ -2317,7 +2339,7 @@
         const id = uid();
         onlineChats[id] = messages;
         // An den Server gehen nur Name der Datei und Anzahl der Nachrichten – nie der Inhalt
-        update[`chats.${id}`] = { ownerUid: me, partnerUids: partners, fileName: file.name, messageCount: messages.length, uploadedAt: Date.now(), lost: false };
+        update[`chats.${id}`] = { ownerUid: me, partnerUids: partners, fileName: file.name, messageCount: messages.length, range: messages.range || null, uploadedAt: Date.now(), lost: false };
       } catch (e) {
         toast(`„${file.name}“ konnte nicht gelesen werden.`);
       }

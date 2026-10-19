@@ -2,7 +2,7 @@
 
 Das Trinkspiel für eure WhatsApp-Chats: Ein Wort, ein Chat – wer schätzt am besten, wie oft es vorkommt?
 
-Alles steckt in einer einzigen Datei: `index.html`.
+Das Spiel steckt in einer einzigen Datei: `index.html`. Dazu kommen `manifest.webmanifest` und der Ordner `icons/`, damit man KlarText in Chrome als App installieren kann (Menü → „App installieren“ bzw. auf dem Handy „Zum Startbildschirm hinzufügen“).
 
 ## Spielmodi
 
